@@ -2,9 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { adminAPI } from '@/lib/api'
-import { motion } from 'framer-motion'
 import { Shield, User, UserCheck, UserX, Lock, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface User {
   _id: string
@@ -132,176 +145,158 @@ export default function AdminPage() {
 
   if (!isVerified) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
-        >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-            <div className="text-center mb-8">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
-                <Shield className="w-16 h-16 text-primary-600 dark:text-primary-400" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Admin Access
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Enter your admin secret to access the management panel
-              </p>
+              <Shield className="w-16 h-16 text-primary" />
             </div>
-
+            <CardTitle className="text-3xl mb-2">
+              Admin Access
+            </CardTitle>
+            <CardDescription>
+              Enter your admin secret to access the management panel
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <form onSubmit={handleVerifySecret} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Admin Secret
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="admin-secret">Admin Secret</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="admin-secret"
                     type="password"
                     value={adminSecret}
                     onChange={(e) => setAdminSecret(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
+                    className="pl-10"
                     placeholder="Enter admin secret"
                     required
                   />
                 </div>
               </div>
 
-              <button
+              <Button
                 type="submit"
                 disabled={verifying}
-                className="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+                className="w-full"
               >
                 {verifying ? (
                   <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
                     Verifying...
                   </>
                 ) : (
                   <>
-                    <Shield className="w-5 h-5" />
+                    <Shield className="w-5 h-5 mr-2" />
                     Verify & Access
                   </>
                 )}
-              </button>
+              </Button>
             </form>
-          </div>
-        </motion.div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="container mx-auto max-w-6xl">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Shield className="w-8 h-8 text-primary-600 dark:text-primary-400" />
+                <Shield className="w-8 h-8 text-primary" />
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  <CardTitle className="text-3xl">
                   Admin Management
-                </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  </CardTitle>
+                  <CardDescription>
                   Manage user roles and permissions
-                </p>
+                  </CardDescription>
+                </div>
               </div>
-            </div>
-            <button
+              <Button
+                variant="secondary"
               onClick={handleLogout}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                className="flex items-center gap-2"
             >
               <Lock className="w-4 h-4" />
               Logout
-            </button>
+              </Button>
           </div>
-
+          </CardHeader>
+          <CardContent>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-4">
-              <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-primary">
                 {users.length}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Total Users</div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <div className="text-sm text-muted-foreground">Total Users</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-foreground/80">
                 {users.filter(u => u.role === 'admin').length}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Admins</div>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <div className="text-sm text-muted-foreground">Admins</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-foreground/60">
                 {users.filter(u => u.role === 'user').length}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Regular Users</div>
-            </div>
+                  <div className="text-sm text-muted-foreground">Regular Users</div>
+                </CardContent>
+              </Card>
           </div>
 
           {/* Users Table */}
           <div className="overflow-x-auto">
             {loading ? (
               <div className="text-center py-12">
-                <RefreshCw className="w-8 h-8 animate-spin mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600 dark:text-gray-400">Loading users...</p>
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Loading users...</p>
               </div>
             ) : users.length === 0 ? (
               <div className="text-center py-12">
-                <User className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600 dark:text-gray-400">No users found</p>
+                  <User className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No users found</p>
               </div>
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Name
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Email
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Role
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Created
-                    </th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                   {users.map((user) => (
-                    <tr
-                      key={user._id}
-                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                    >
-                      <td className="py-4 px-4">
+                      <TableRow key={user._id}>
+                        <TableCell>
                         <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-gray-400" />
-                          <span className="font-medium text-gray-900 dark:text-white">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium">
                             {user.name}
                           </span>
                         </div>
-                      </td>
-                      <td className="py-4 px-4 text-gray-600 dark:text-gray-400">
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
                         {user.email}
-                      </td>
-                      <td className="py-4 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                            user.role === 'admin'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                          }`}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={user.role === 'admin' ? 'default' : 'secondary'}
+                            className="flex items-center gap-1 w-fit"
                         >
                           {user.role === 'admin' ? (
                             <UserCheck className="w-3 h-3" />
@@ -309,51 +304,53 @@ export default function AdminPage() {
                             <User className="w-3 h-3" />
                           )}
                           {user.role || 'user'}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-400">
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
                         {formatDate(user.createdAt)}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center justify-end gap-2">
+                        </TableCell>
+                        <TableCell className="text-right">
                           {user.role === 'admin' ? (
-                            <button
+                            <Button
+                              variant="destructive"
+                              size="sm"
                               onClick={() => handleRemoveAdmin(user._id)}
-                              className="px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center gap-1 text-sm font-medium"
+                              className="flex items-center gap-1"
                             >
                               <UserX className="w-4 h-4" />
                               Remove Admin
-                            </button>
+                            </Button>
                           ) : (
-                            <button
+                            <Button
+                              size="sm"
                               onClick={() => handleSetAdmin(user._id)}
-                              className="px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center gap-1 text-sm font-medium"
+                              className="flex items-center gap-1"
                             >
                               <UserCheck className="w-4 h-4" />
                               Make Admin
-                            </button>
+                            </Button>
                           )}
-                        </div>
-                      </td>
-                    </tr>
+                        </TableCell>
+                      </TableRow>
                   ))}
-                </tbody>
-              </table>
+                  </TableBody>
+                </Table>
             )}
           </div>
 
           {/* Refresh Button */}
           <div className="mt-6 flex justify-end">
-            <button
+              <Button
               onClick={() => fetchUsers(adminSecret)}
               disabled={loading}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="flex items-center gap-2"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
-            </button>
+              </Button>
           </div>
-        </motion.div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

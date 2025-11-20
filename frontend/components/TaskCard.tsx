@@ -3,6 +3,8 @@
 import { Draggable } from '@hello-pangea/dnd'
 import { Task } from '@/store/boardStore'
 import { AlertCircle, Clock, GripVertical, User } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 interface TaskCardProps {
   task: Task
@@ -14,40 +16,34 @@ export default function TaskCard({ task, index, onClick }: TaskCardProps) {
   const getPriorityColor = () => {
     switch (task.priority) {
       case 'high':
-        return 'border-l-red-500 bg-red-50 dark:bg-red-900/20'
+        return 'border-l-foreground bg-muted'
       case 'medium':
-        return 'border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
+        return 'border-l-muted-foreground/50 bg-muted/50'
       case 'low':
-        return 'border-l-green-500 bg-green-50 dark:bg-green-900/20'
+        return 'border-l-muted-foreground/30 bg-muted/30'
       default:
-        return 'border-l-gray-500 bg-gray-50 dark:bg-gray-900/20'
+        return 'border-l-border bg-muted/30'
     }
   }
 
   const getPriorityIcon = () => {
-    switch (task.priority) {
-      case 'high':
-        return <AlertCircle className="w-4 h-4 text-red-500" />
-      case 'medium':
-        return <AlertCircle className="w-4 h-4 text-yellow-500" />
-      case 'low':
-        return <AlertCircle className="w-4 h-4 text-green-500" />
-      default:
-        return null
+    if (task.priority === 'high') {
+      return <AlertCircle className="w-4 h-4 text-foreground" />
     }
+    return null
   }
 
   return (
     <Draggable draggableId={task._id} index={index}>
       {(provided, snapshot) => {
         return (
-          <div
+          <Card
             ref={provided.innerRef}
             {...provided.draggableProps}
             {...provided.dragHandleProps}
-            className={`border-l-4 ${getPriorityColor()} bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-lg transition-all duration-200 select-none group ${
+            className={`border-l-4 ${getPriorityColor()} cursor-grab active:cursor-grabbing hover:shadow-lg transition-all duration-200 select-none group ${
               snapshot.isDragging 
-                ? 'shadow-2xl ring-4 ring-primary-500/50 z-50 border-primary-500 cursor-grabbing' 
+                ? 'shadow-2xl ring-4 ring-foreground/20 z-50 border-foreground cursor-grabbing' 
                 : 'hover:shadow-md'
             }`}
             style={provided.draggableProps.style}
@@ -57,35 +53,35 @@ export default function TaskCard({ task, index, onClick }: TaskCardProps) {
               onClick()
             }}
           >
+            <CardContent className="p-4">
           <div className="flex items-start justify-between mb-2 gap-2">
             <div className="flex items-start gap-2 flex-1">
-              <GripVertical className="w-4 h-4 text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0 group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors pointer-events-none" />
-              <h3 className="font-semibold text-gray-900 dark:text-white flex-1">
+              <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0 group-hover:text-foreground transition-colors pointer-events-none" />
+                  <h3 className="font-semibold text-foreground flex-1">
                 {task.title}
               </h3>
             </div>
             {getPriorityIcon()}
           </div>
           {task.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
               {task.description}
             </p>
           )}
-          <div className="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-500">
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <Clock className="w-3 h-3" />
               <span>{new Date(task.createdAt).toLocaleDateString()}</span>
             </div>
             {task.assignee && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-primary-100 dark:bg-primary-900/30 rounded-md">
-                <User className="w-3 h-3 text-primary-600 dark:text-primary-400" />
-                <span className="text-primary-700 dark:text-primary-300 font-medium">
+                  <Badge variant="secondary" className="flex items-center gap-1.5">
+                    <User className="w-3 h-3" />
                   {task.assignee}
-                </span>
+                  </Badge>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </CardContent>
+          </Card>
         )
       }}
     </Draggable>

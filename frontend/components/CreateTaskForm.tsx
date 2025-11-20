@@ -4,7 +4,18 @@ import { useState, useEffect } from 'react'
 import { useBoardStore } from '@/store/boardStore'
 import { useUserStore } from '@/store/userStore'
 import { X } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Card, CardContent } from '@/components/ui/card'
 
 interface CreateTaskFormProps {
   onClose: () => void
@@ -17,7 +28,7 @@ export default function CreateTaskForm({ onClose, initialStatus = 'todo' }: Crea
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
-  const [assignee, setAssignee] = useState('')
+  const [assignee, setAssignee] = useState('unassigned')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -43,13 +54,13 @@ export default function CreateTaskForm({ onClose, initialStatus = 'todo' }: Crea
         description,
         status: initialStatus,
         priority,
-        assignee: assignee.trim() || undefined,
+        assignee: assignee === 'unassigned' ? undefined : assignee.trim(),
         boardId: selectedBoard._id,
       })
       setTitle('')
       setDescription('')
       setPriority('medium')
-      setAssignee('')
+      setAssignee('unassigned')
       onClose()
     } catch (error) {
       // Error handled by toast
@@ -59,71 +70,76 @@ export default function CreateTaskForm({ onClose, initialStatus = 'todo' }: Crea
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 mb-4"
-    >
+    <Card className="mb-4">
+      <CardContent className="pt-6">
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
+          <Input
           type="text"
           placeholder="Task title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
           required
         />
-        <textarea
+          <Textarea
           placeholder="Description (optional)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-gray-900 dark:text-white"
           rows={3}
         />
         <div className="grid grid-cols-2 gap-2">
-          <select
+            <Select
             value={priority}
-            onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
-            className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
-          >
-            <option value="low">Low Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="high">High Priority</option>
-          </select>
-          <select
+              onValueChange={(value) => setPriority(value as 'low' | 'medium' | 'high')}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low Priority</SelectItem>
+                <SelectItem value="medium">Medium Priority</SelectItem>
+                <SelectItem value="high">High Priority</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
             value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
-          >
-            <option value="">Unassigned</option>
+              onValueChange={setAssignee}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
             {availableUsers.map((user) => (
-              <option key={user._id} value={user.name}>
+                  <SelectItem key={user._id} value={user.name}>
                 {user.name}
-              </option>
+                  </SelectItem>
             ))}
-            {assignee && assignee !== '' && !availableUsers.some(u => u.name === assignee) && (
-              <option value={assignee}>{assignee}</option>
+            {assignee && assignee !== 'unassigned' && !availableUsers.some(u => u.name === assignee) && (
+                  <SelectItem value={assignee}>{assignee}</SelectItem>
             )}
-          </select>
+              </SelectContent>
+            </Select>
         </div>
         <div className="flex gap-2">
-          <button
+            <Button
             type="submit"
             disabled={loading}
-            className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
+              className="flex-1"
           >
             {loading ? 'Creating...' : 'Create'}
-          </button>
-          <button
+            </Button>
+            <Button
             type="button"
+              variant="secondary"
+              size="icon"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
             <X className="w-4 h-4" />
-          </button>
+            </Button>
         </div>
       </form>
-    </motion.div>
+      </CardContent>
+    </Card>
   )
 }
 

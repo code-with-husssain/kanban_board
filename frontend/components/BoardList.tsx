@@ -2,10 +2,10 @@
 
 import { useBoardStore } from '@/store/boardStore'
 import { useAuthStore } from '@/store/authStore'
-import { motion } from 'framer-motion'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import toast from 'react-hot-toast'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 export default function BoardList() {
   const { boards, selectBoard, deleteBoard } = useBoardStore()
@@ -29,52 +29,53 @@ export default function BoardList() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+      <h2 className="text-3xl font-bold text-foreground mb-8">
         Your Boards
       </h2>
 
       {boards.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-500 dark:text-gray-400 text-lg mb-4">
+          <p className="text-muted-foreground text-lg mb-4">
             No boards yet. Create your first board to get started!
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {boards.map((board, index) => (
-            <motion.div
+          {boards.map((board) => (
+            <Card
               key={board._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
               onClick={() => selectBoard(board)}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow relative group"
+              className="cursor-pointer hover:shadow-lg transition-shadow relative group"
             >
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-xl">
                   {board.name}
-                </h3>
+                  </CardTitle>
                 {user && board.userId === user._id && (
-                  <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                     onClick={(e) => handleDelete(board._id, e)}
                     disabled={deletingId === board._id}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive hover:bg-destructive/10"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-                  </button>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                 )}
               </div>
               {board.description && (
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
+                  <CardDescription className="line-clamp-2">
                   {board.description}
-                </p>
+                  </CardDescription>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-500">
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">
                 Created {new Date(board.createdAt).toLocaleDateString()}
               </p>
-            </motion.div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

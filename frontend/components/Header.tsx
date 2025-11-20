@@ -1,13 +1,27 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBoardStore } from '@/store/boardStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUserStore } from '@/store/userStore'
 import { useTheme } from './ThemeProvider'
 import { Moon, Sun, ArrowLeft, Plus, LogOut, User } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Card, CardContent } from '@/components/ui/card'
+import Logo from './Logo'
 
 export default function Header() {
   const router = useRouter()
@@ -19,30 +33,12 @@ export default function Header() {
   const [boardName, setBoardName] = useState('')
   const [boardDescription, setBoardDescription] = useState('')
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const userMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (showCreateBoard) {
       fetchUsers()
     }
   }, [showCreateBoard, fetchUsers])
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setShowUserMenu(false)
-      }
-    }
-
-    if (showUserMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showUserMenu])
 
   const handleLogout = () => {
     logout()
@@ -71,159 +67,147 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <header className="border-b bg-background">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {selectedBoard && (
-              <motion.button
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => selectBoard(null)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
-              </motion.button>
+              </Button>
             )}
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {selectedBoard ? selectedBoard.name : 'Kanban Board'}
-            </h1>
+            {selectedBoard ? (
+              <h1 className="text-2xl font-bold text-foreground">
+                {selectedBoard.name}
+              </h1>
+            ) : (
+              <Logo size="md" />
+            )}
           </div>
 
           <div className="flex items-center gap-4">
             {!selectedBoard && user?.role === 'admin' && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <Button
                 onClick={() => setShowCreateBoard(!showCreateBoard)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                className="flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 New Board
-              </motion.button>
+              </Button>
             )}
 
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={toggleTheme}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               {theme === 'light' ? (
-                <Moon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                <Moon className="w-5 h-5" />
               ) : (
-                <Sun className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                <Sun className="w-5 h-5" />
               )}
-            </motion.button>
+            </Button>
 
             {user && (
-              <div className="relative" ref={userMenuRef}>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" className="flex items-center gap-2">
                   <User className="w-4 h-4" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span className="text-sm font-medium">
                     {user.name}
                   </span>
-                </motion.button>
-
-                {showUserMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50"
-                  >
-                    <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {user.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>
+                    <div>
+                      <p className="text-sm font-medium">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {user.email}
                       </p>
                     </div>
-                    <button
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="text-destructive cursor-pointer"
                     >
-                      <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4 mr-2" />
                       Logout
-                    </button>
-                  </motion.div>
-                )}
-              </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </div>
 
         {showCreateBoard && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
-          >
-            <input
+          <Card className="mt-4">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <Input
               type="text"
               placeholder="Board name"
               value={boardName}
               onChange={(e) => setBoardName(e.target.value)}
-              className="w-full px-4 py-2 mb-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               onKeyPress={(e) => e.key === 'Enter' && handleCreateBoard()}
             />
-            <textarea
+                <Textarea
               placeholder="Description (optional)"
               value={boardDescription}
               onChange={(e) => setBoardDescription(e.target.value)}
-              className="w-full px-4 py-2 mb-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
               rows={2}
             />
-            <div className="mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <div>
+                  <Label className="mb-2 block">
                 Assign to Users (optional)
-              </label>
-              <div className="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-800">
+                  </Label>
+                  <Card className="max-h-32 overflow-y-auto">
+                    <CardContent className="p-2">
                 {users.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Loading users...</p>
+                        <p className="text-sm text-muted-foreground">Loading users...</p>
                 ) : (
                   users.map((u) => (
                     <label
                       key={u._id}
-                      className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                            className="flex items-center gap-2 p-2 hover:bg-accent rounded cursor-pointer"
                     >
-                      <input
-                        type="checkbox"
+                            <Checkbox
                         checked={selectedAssignees.includes(u.name)}
-                        onChange={() => toggleAssignee(u.name)}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                              onCheckedChange={() => toggleAssignee(u.name)}
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{u.name}</span>
+                            <span className="text-sm text-foreground">{u.name}</span>
                     </label>
                   ))
                 )}
-              </div>
+                    </CardContent>
+                  </Card>
             </div>
             <div className="flex gap-2">
-              <button
+                  <Button
                 onClick={handleCreateBoard}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
               >
                 Create
-              </button>
-              <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                 onClick={() => {
                   setShowCreateBoard(false)
                   setBoardName('')
                   setBoardDescription('')
                   setSelectedAssignees([])
                 }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
               >
                 Cancel
-              </button>
+                  </Button>
+                </div>
             </div>
-          </motion.div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </header>

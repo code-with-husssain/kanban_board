@@ -6,7 +6,6 @@ import { useBoardStore } from '@/store/boardStore'
 import Column from './Column'
 import TaskModal from './TaskModal'
 import LoadingSkeleton from './LoadingSkeleton'
-import { motion } from 'framer-motion'
 
 interface KanbanBoardProps {
   boardId: string
@@ -99,14 +98,9 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
         onDragEnd={onDragEnd}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {columns.map((column, index) => (
-            <motion.div
+          {columns.map((column) => (
+            <Column
               key={column.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Column
                 column={column}
                 tasks={getTasksByStatus(column.status)}
                 onTaskClick={(taskId) => {
@@ -114,7 +108,6 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
                   setShowTaskModal(true)
                 }}
               />
-            </motion.div>
           ))}
         </div>
       </DragDropContext>
