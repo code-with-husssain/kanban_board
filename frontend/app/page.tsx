@@ -15,7 +15,18 @@ export default function Home() {
   const { isAuthenticated, checkAuth, loading: authLoading } = useAuthStore()
 
   useEffect(() => {
-    checkAuth()
+    // Only check auth if we don't already have a token and user
+    // This prevents clearing auth state right after login
+    const authState = useAuthStore.getState()
+    if (!authState.token || !authState.user) {
+      checkAuth()
+    } else {
+      // If we have token and user, ensure isAuthenticated is set
+      // Don't call checkAuth to avoid unnecessary API calls that might fail
+      if (!authState.isAuthenticated) {
+        useAuthStore.setState({ isAuthenticated: true })
+      }
+    }
   }, [checkAuth])
 
   useEffect(() => {

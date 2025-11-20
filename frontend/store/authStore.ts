@@ -72,18 +72,21 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        const { token, user } = get()
+        const { token, user, isAuthenticated } = get()
+        
+        // If no token, clear auth
         if (!token) {
           set({ isAuthenticated: false, user: null })
           return
         }
 
-        // If we have a token and user in storage, consider authenticated
-        // This prevents clearing auth on network errors
-        if (token && user) {
+        // If we have token and user, set authenticated immediately
+        // This prevents clearing auth state right after login
+        if (token && user && !isAuthenticated) {
           set({ isAuthenticated: true })
         }
 
+        // Try to verify token with API (but don't clear auth on network errors)
         try {
           const response = await authAPI.getMe()
           set({
@@ -91,7 +94,8 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
           })
         } catch (error: any) {
-          // Only clear auth on 401 (unauthorized), not on network errors
+          // Only clear auth on 401 (unauthorized), not on network errors or other errors
+          // This prevents logout when API is temporarily unavailable
           if (error.response?.status === 401) {
             set({
               user: null,
@@ -99,18 +103,15 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: false,
             })
           }
-          // For other errors (network, etc.), keep the existing auth state
+          // For network errors, 500, etc. - keep existing auth state
+          // User can still use the app with cached credentials
         }
       },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ 
-        token: state.token, 
-        user: state.user,
-        isAuthenticated: state.isAuthenticated 
-      }),
+      partialize: (state) => ({ token: state.token, user: state.user }),
     }
   )
 )

@@ -17,27 +17,18 @@ export default function LoginPage() {
 
   const { register } = useAuthStore()
 
-  useEffect(() => {
-    if (isAuthenticated && !loading) {
-      // Small delay to ensure Zustand persist has saved to localStorage
-      const timer = setTimeout(() => {
-        // Use hard redirect to ensure full page reload
-        // This ensures localStorage is properly read on the home page
-        window.location.href = '/'
-      }, 100)
-      
-      return () => clearTimeout(timer)
-    }
-  }, [isAuthenticated, loading])
+  // Remove useEffect redirect - we use window.location.href in handleSubmit instead
+  // This prevents race conditions with checkAuth on the home page
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       if (isLogin) {
         await login(email, password)
-        // Wait a moment for state to update and persist
-        await new Promise(resolve => setTimeout(resolve, 300))
-        // Fallback redirect - useEffect should also handle this, but this ensures it happens
+        // Wait a moment for state to persist to localStorage
+        await new Promise(resolve => setTimeout(resolve, 100))
+        // Use hard redirect to ensure state is properly loaded
+        // This forces a full page reload and ensures localStorage is read correctly
         window.location.href = '/'
       } else {
         await register(name, email, password)
@@ -47,9 +38,8 @@ export default function LoginPage() {
         setName('') // Clear name field
         // Keep email filled in for convenience
       }
-    } catch (error: any) {
+    } catch (error) {
       // Error handled by toast
-      console.error('Auth error:', error)
       // Don't redirect on error
     }
   }
