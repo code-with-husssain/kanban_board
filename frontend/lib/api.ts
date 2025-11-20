@@ -116,6 +116,24 @@ export const taskAPI = {
   delete: (id: string) => api.delete(`/tasks/${id}`),
 }
 
+// Admin API - requires admin secret in header
+export const adminAPI = {
+  verifySecret: (adminSecret: string) => 
+    api.post('/admin/verify-secret', { adminSecret }),
+  getAllUsers: (adminSecret: string) => 
+    api.get('/admin/users', { 
+      headers: { 'x-admin-secret': adminSecret } 
+    }),
+  setAdmin: (userId: string, adminSecret: string) => 
+    api.post(`/admin/set-admin/${userId}`, {}, { 
+      headers: { 'x-admin-secret': adminSecret } 
+    }),
+  removeAdmin: (userId: string, adminSecret: string) => 
+    api.post(`/admin/remove-admin/${userId}`, {}, { 
+      headers: { 'x-admin-secret': adminSecret } 
+    }),
+}
+
 export default api
 
 
