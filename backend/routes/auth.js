@@ -136,8 +136,57 @@ router.get('/me', async (req, res, next) => {
 // GET /api/auth/users - Get all users (protected route)
 router.get('/users', protect, async (req, res, next) => {
   try {
-    const users = await User.find().select('name email _id').sort({ name: 1 });
+    const users = await User.find().select('name email _id role').sort({ name: 1 });
     res.json(users);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/auth/set-admin - Set a user as admin (protected by admin secret)
+router.post('/set-admin', async (req, res, next) => {
+  try {
+    const { email, adminSecret } = req.body;
+    const requiredAdminSecret = process.env.ADMIN_SECRET;
+
+    // Check if admin secret is configured
+    if (!requiredAdminSecret) {
+      return res.status(500).json({ 
+        error: 'Admin secret not configured. Please set ADMIN_SECRET environment variable.' 
+      });
+    }
+
+    // Verify admin secret
+    if (!adminSecret || adminSecret !== requiredAdminSecret) {
+      return res.status(401).json({ error: 'Invalid admin secret' });
+    }
+
+    // Validate email
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Find user
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Set user as admin
+    user.role = 'admin';
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: `User ${user.name} (${user.email}) has been set as admin`,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
     next(error);
   }

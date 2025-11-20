@@ -18,17 +18,20 @@ export default function LoginPage() {
   const { register } = useAuthStore()
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/')
+    if (isAuthenticated && !loading) {
+      // Use replace to avoid adding to history and prevent back button issues
+      router.replace('/')
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, loading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       if (isLogin) {
         await login(email, password)
-        router.push('/')
+        // Use hard redirect to ensure state is properly loaded
+        // This forces a full page reload and ensures localStorage is read correctly
+        window.location.href = '/'
       } else {
         await register(name, email, password)
         // After successful registration, switch to login mode

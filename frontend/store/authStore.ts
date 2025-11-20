@@ -72,10 +72,16 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        const { token } = get()
+        const { token, user } = get()
         if (!token) {
           set({ isAuthenticated: false, user: null })
           return
+        }
+
+        // If we have a token and user in storage, consider authenticated
+        // This prevents clearing auth on network errors
+        if (token && user) {
+          set({ isAuthenticated: true })
         }
 
         try {
@@ -84,13 +90,16 @@ export const useAuthStore = create<AuthState>()(
             user: response.data.user,
             isAuthenticated: true,
           })
-        } catch (error) {
-          // Token is invalid, clear auth
-          set({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-          })
+        } catch (error: any) {
+          // Only clear auth on 401 (unauthorized), not on network errors
+          if (error.response?.status === 401) {
+            set({
+              user: null,
+              token: null,
+              isAuthenticated: false,
+            })
+          }
+          // For other errors (network, etc.), keep the existing auth state
         }
       },
     }),
