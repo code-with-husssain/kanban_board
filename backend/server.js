@@ -10,8 +10,21 @@ const taskRoutes = require('./routes/tasks');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB (with caching for serverless)
+let dbConnected = false;
+const initializeDB = async () => {
+  if (!dbConnected) {
+    try {
+      await connectDB();
+      dbConnected = true;
+    } catch (error) {
+      console.error('Failed to connect to MongoDB:', error);
+    }
+  }
+};
+
+// Initialize DB connection
+initializeDB();
 
 // Middleware
 app.use(cors());
@@ -31,10 +44,15 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Start server only if not in serverless environment (Vercel)
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+// Export for Vercel serverless
+module.exports = app;
 
 
 
