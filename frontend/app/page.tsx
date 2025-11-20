@@ -12,38 +12,29 @@ import LoadingSkeleton from '@/components/LoadingSkeleton'
 export default function Home() {
   const router = useRouter()
   const { selectedBoard, boards, loading, fetchBoards } = useBoardStore()
-  const { isAuthenticated, checkAuth, loading: authLoading, token, user } = useAuthStore()
+  const { isAuthenticated, checkAuth, loading: authLoading } = useAuthStore()
 
   useEffect(() => {
-    // If we have token and user, set authenticated immediately
-    if (token && user) {
-      if (!isAuthenticated) {
-        useAuthStore.setState({ isAuthenticated: true })
-      }
-      // Don't call checkAuth immediately - it might fail and clear auth
-    } else {
-      // No token/user, check auth
-      checkAuth()
+    checkAuth()
+  }, [checkAuth])
+
+  useEffect(() => {
+    // Wait for auth check to complete before making redirect decisions
+    if (authLoading) {
+      return // Still checking auth, don't redirect yet
     }
-  }, [checkAuth, token, user, isAuthenticated])
-
-  useEffect(() => {
-    // Don't redirect if we have token and user (even if isAuthenticated is temporarily false)
-    // This prevents redirect loop after login
-    if (!authLoading && !isAuthenticated && (!token || !user)) {
+    
+    if (!isAuthenticated) {
       router.push('/login')
       return
     }
     
-    // If authenticated or have token/user, fetch boards
-    if (isAuthenticated || (token && user)) {
+    if (isAuthenticated) {
       fetchBoards()
     }
-  }, [isAuthenticated, authLoading, router, fetchBoards, token, user])
+  }, [isAuthenticated, authLoading, router, fetchBoards])
 
-  const hasAuth = isAuthenticated || (token && user)
-  
-  if (authLoading || (!hasAuth && !authLoading)) {
+  if (authLoading || (!isAuthenticated && !authLoading)) {
     return <LoadingSkeleton />
   }
 

@@ -9,7 +9,7 @@ import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login, isAuthenticated, loading, token, user } = useAuthStore()
+  const { login, isAuthenticated, loading } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(true)
@@ -17,23 +17,20 @@ export default function LoginPage() {
 
   const { register } = useAuthStore()
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated || (token && user)) {
+    if (isAuthenticated && !loading) {
+      // Use replace to avoid adding to history and prevent back button issues
       router.replace('/')
     }
-  }, [isAuthenticated, token, user, router])
+  }, [isAuthenticated, loading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       if (isLogin) {
         await login(email, password)
-        // Wait a moment for state to persist to localStorage
-        await new Promise(resolve => setTimeout(resolve, 100))
-        // Use hard redirect to ensure state is properly loaded
-        // This forces a full page reload and ensures localStorage is read correctly
-        window.location.href = '/'
+        // The useEffect will handle the redirect after state is updated
+        // No need for hard redirect - let React handle it naturally
       } else {
         await register(name, email, password)
         // After successful registration, switch to login mode
@@ -44,7 +41,6 @@ export default function LoginPage() {
       }
     } catch (error) {
       // Error handled by toast
-      // Don't redirect on error
     }
   }
 

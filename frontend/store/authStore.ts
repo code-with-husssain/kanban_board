@@ -72,56 +72,46 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        const { token, user, isAuthenticated } = get()
-        
-        // If no token, clear auth
+        set({ loading: true })
+        const { token, user } = get()
         if (!token) {
-          set({ isAuthenticated: false, user: null })
+          set({ isAuthenticated: false, user: null, loading: false })
           return
         }
 
-        // If we have token and user, set authenticated immediately
-        // This prevents clearing auth state right after login
-        if (token && user && !isAuthenticated) {
+        // If we have a token and user in storage, consider authenticated
+        // This prevents clearing auth on network errors
+        if (token && user) {
           set({ isAuthenticated: true })
         }
 
-        // Try to verify token with API (but don't clear auth on network errors)
         try {
           const response = await authAPI.getMe()
           set({
             user: response.data.user,
             isAuthenticated: true,
+            loading: false,
           })
         } catch (error: any) {
-          // Only clear auth on 401 (unauthorized), not on network errors or other errors
-          // This prevents logout when API is temporarily unavailable
+          // Only clear auth on 401 (unauthorized), not on network errors
           if (error.response?.status === 401) {
             set({
               user: null,
               token: null,
               isAuthenticated: false,
+              loading: false,
             })
+          } else {
+            // For other errors (network, etc.), keep the existing auth state
+            set({ loading: false })
           }
-          // For network errors, 500, etc. - keep existing auth state
-          // User can still use the app with cached credentials
         }
       },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ 
-        token: state.token, 
-        user: state.user,
-        isAuthenticated: state.isAuthenticated 
-      }),
-      // Initialize isAuthenticated from token/user on rehydration
-      onRehydrateStorage: () => (state) => {
-        if (state && state.token && state.user && !state.isAuthenticated) {
-          state.isAuthenticated = true
-        }
-      },
+      partialize: (state) => ({ token: state.token, user: state.user }),
     }
   )
 )
