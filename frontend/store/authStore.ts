@@ -74,15 +74,52 @@ export const useAuthStore = create<AuthState>()(
       checkAuth: async () => {
         set({ loading: true })
         const { token, user } = get()
-        if (!token) {
-          set({ isAuthenticated: false, user: null, loading: false })
+        
+        // First, check if token exists in localStorage directly (bypassing Zustand state)
+        // This handles cases where Zustand persist hasn't synced yet after login
+        let tokenFromStorage: string | null = null
+        let userFromStorage: User | null = null
+        
+        if (typeof window !== 'undefined') {
+          try {
+            const authData = localStorage.getItem('auth-storage')
+            if (authData) {
+              const parsed = JSON.parse(authData)
+              tokenFromStorage = parsed?.state?.token || null
+              userFromStorage = parsed?.state?.user || null
+            }
+          } catch (error) {
+            // Ignore parse errors
+          }
+        }
+        
+        // Use token from storage if Zustand state doesn't have it yet
+        const effectiveToken = token || tokenFromStorage
+        const effectiveUser = user || userFromStorage
+        
+        if (!effectiveToken) {
+          set({ isAuthenticated: false, user: null, token: null, loading: false })
           return
         }
 
-        // If we have a token and user in storage, consider authenticated initially
-        // This prevents clearing auth on network errors and allows page to render
-        if (token && user) {
-          set({ isAuthenticated: true, loading: false })
+        // If we have a token (from state or storage), set authenticated optimistically
+        // This prevents the brief "unauthenticated" state that triggers redirect
+        // This is critical for production where state sync timing can cause issues
+        if (effectiveToken && effectiveUser) {
+          set({ 
+            isAuthenticated: true, 
+            token: effectiveToken,
+            user: effectiveUser,
+            loading: false 
+          })
+        } else if (effectiveToken) {
+          // We have a token but no user - still set authenticated to prevent redirect
+          // The API call will populate the user data
+          set({ 
+            isAuthenticated: true, 
+            token: effectiveToken,
+            loading: false 
+          })
         }
 
         try {
@@ -101,9 +138,14 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: false,
               loading: false,
             })
+            // Also clear from localStorage on 401
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('auth-storage')
+            }
           } else {
             // For other errors (network, CORS, etc.), keep the existing auth state
             // This prevents redirect loops when API is temporarily unavailable
+            // The optimistic auth state set above will keep user logged in
             set({ loading: false })
           }
         }
