@@ -19,18 +19,25 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && !loading) {
-      // Use replace to avoid adding to history and prevent back button issues
-      router.replace('/')
+      // Small delay to ensure Zustand persist has saved to localStorage
+      const timer = setTimeout(() => {
+        // Use hard redirect to ensure full page reload
+        // This ensures localStorage is properly read on the home page
+        window.location.href = '/'
+      }, 100)
+      
+      return () => clearTimeout(timer)
     }
-  }, [isAuthenticated, loading, router])
+  }, [isAuthenticated, loading])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       if (isLogin) {
         await login(email, password)
-        // Use hard redirect to ensure state is properly loaded
-        // This forces a full page reload and ensures localStorage is read correctly
+        // Wait a moment for state to update and persist
+        await new Promise(resolve => setTimeout(resolve, 300))
+        // Fallback redirect - useEffect should also handle this, but this ensures it happens
         window.location.href = '/'
       } else {
         await register(name, email, password)
@@ -40,8 +47,10 @@ export default function LoginPage() {
         setName('') // Clear name field
         // Keep email filled in for convenience
       }
-    } catch (error) {
+    } catch (error: any) {
       // Error handled by toast
+      console.error('Auth error:', error)
+      // Don't redirect on error
     }
   }
 
