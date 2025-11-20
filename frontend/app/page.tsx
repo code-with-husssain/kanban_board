@@ -12,34 +12,38 @@ import LoadingSkeleton from '@/components/LoadingSkeleton'
 export default function Home() {
   const router = useRouter()
   const { selectedBoard, boards, loading, fetchBoards } = useBoardStore()
-  const { isAuthenticated, checkAuth, loading: authLoading } = useAuthStore()
+  const { isAuthenticated, checkAuth, loading: authLoading, token, user } = useAuthStore()
 
   useEffect(() => {
-    // Only check auth if we don't already have a token and user
-    // This prevents clearing auth state right after login
-    const authState = useAuthStore.getState()
-    if (!authState.token || !authState.user) {
-      checkAuth()
-    } else {
-      // If we have token and user, ensure isAuthenticated is set
-      // Don't call checkAuth to avoid unnecessary API calls that might fail
-      if (!authState.isAuthenticated) {
+    // If we have token and user, set authenticated immediately
+    if (token && user) {
+      if (!isAuthenticated) {
         useAuthStore.setState({ isAuthenticated: true })
       }
+      // Don't call checkAuth immediately - it might fail and clear auth
+    } else {
+      // No token/user, check auth
+      checkAuth()
     }
-  }, [checkAuth])
+  }, [checkAuth, token, user, isAuthenticated])
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    // Don't redirect if we have token and user (even if isAuthenticated is temporarily false)
+    // This prevents redirect loop after login
+    if (!authLoading && !isAuthenticated && (!token || !user)) {
       router.push('/login')
       return
     }
-    if (isAuthenticated) {
+    
+    // If authenticated or have token/user, fetch boards
+    if (isAuthenticated || (token && user)) {
       fetchBoards()
     }
-  }, [isAuthenticated, authLoading, router, fetchBoards])
+  }, [isAuthenticated, authLoading, router, fetchBoards, token, user])
 
-  if (authLoading || (!isAuthenticated && !authLoading)) {
+  const hasAuth = isAuthenticated || (token && user)
+  
+  if (authLoading || (!hasAuth && !authLoading)) {
     return <LoadingSkeleton />
   }
 

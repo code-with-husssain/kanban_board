@@ -9,7 +9,7 @@ import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login, isAuthenticated, loading } = useAuthStore()
+  const { login, isAuthenticated, loading, token, user } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(true)
@@ -17,8 +17,12 @@ export default function LoginPage() {
 
   const { register } = useAuthStore()
 
-  // Remove useEffect redirect - we use window.location.href in handleSubmit instead
-  // This prevents race conditions with checkAuth on the home page
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated || (token && user)) {
+      router.replace('/')
+    }
+  }, [isAuthenticated, token, user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

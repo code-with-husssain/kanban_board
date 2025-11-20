@@ -111,7 +111,17 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ token: state.token, user: state.user }),
+      partialize: (state) => ({ 
+        token: state.token, 
+        user: state.user,
+        isAuthenticated: state.isAuthenticated 
+      }),
+      // Initialize isAuthenticated from token/user on rehydration
+      onRehydrateStorage: () => (state) => {
+        if (state && state.token && state.user && !state.isAuthenticated) {
+          state.isAuthenticated = true
+        }
+      },
     }
   )
 )
