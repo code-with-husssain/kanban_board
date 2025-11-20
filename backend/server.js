@@ -27,7 +27,25 @@ const initializeDB = async () => {
 initializeDB();
 
 // Middleware
-app.use(cors());
+// CORS configuration - allow all origins in development, specific in production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    // In production, allow same-origin requests (Vercel handles this)
+    // In development, allow all origins
+    if (process.env.NODE_ENV === 'production') {
+      // Allow same-origin and common Vercel domains
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

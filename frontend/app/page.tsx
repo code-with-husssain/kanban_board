@@ -24,12 +24,14 @@ export default function Home() {
       return // Still checking auth, don't redirect yet
     }
     
-    if (!isAuthenticated) {
+    // Only redirect if we're sure user is not authenticated
+    // Don't redirect if we're still loading or if there's a network error
+    if (!isAuthenticated && !authLoading) {
       router.push('/login')
       return
     }
     
-    if (isAuthenticated) {
+    if (isAuthenticated && !authLoading) {
       fetchBoards()
     }
   }, [isAuthenticated, authLoading, router, fetchBoards])

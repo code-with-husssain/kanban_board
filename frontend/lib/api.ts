@@ -1,17 +1,42 @@
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+// Use relative URL in production (same domain) or absolute URL in development
+// This ensures API calls work both locally and on Vercel
+const getAPIUrl = () => {
+  // Check if we have an explicit API URL set (highest priority)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL
+  }
+  
+  // In browser, check if we're on localhost
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api'
+    }
+    // In production (Vercel or any other domain), use relative URL since API is on same domain
+    return '/api'
+  }
+  
+  // Server-side: use environment variable or default to relative URL
+  // This is safe because Vercel routes /api/* to backend
+  return process.env.NEXT_PUBLIC_API_URL || '/api'
+}
 
+// Create axios instance with dynamic baseURL
 const api = axios.create({
-  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Add token to requests if available
+// Set baseURL dynamically and add token to requests
 api.interceptors.request.use(
   (config) => {
+    // Set baseURL dynamically based on current environment
+    config.baseURL = getAPIUrl()
+    
+    // Add auth token if available
     if (typeof window !== 'undefined') {
       const authData = localStorage.getItem('auth-storage')
       if (authData) {
@@ -39,8 +64,12 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Clear auth on unauthorized
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth-storage')
-        window.location.href = '/login'
+        const currentPath = window.location.pathname
+        // Only redirect if not already on login page to prevent redirect loops
+        if (currentPath !== '/login') {
+          localStorage.removeItem('auth-storage')
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)

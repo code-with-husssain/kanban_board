@@ -79,10 +79,10 @@ export const useAuthStore = create<AuthState>()(
           return
         }
 
-        // If we have a token and user in storage, consider authenticated
-        // This prevents clearing auth on network errors
+        // If we have a token and user in storage, consider authenticated initially
+        // This prevents clearing auth on network errors and allows page to render
         if (token && user) {
-          set({ isAuthenticated: true })
+          set({ isAuthenticated: true, loading: false })
         }
 
         try {
@@ -102,7 +102,8 @@ export const useAuthStore = create<AuthState>()(
               loading: false,
             })
           } else {
-            // For other errors (network, etc.), keep the existing auth state
+            // For other errors (network, CORS, etc.), keep the existing auth state
+            // This prevents redirect loops when API is temporarily unavailable
             set({ loading: false })
           }
         }
