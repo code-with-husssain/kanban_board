@@ -22,12 +22,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Card, CardContent } from '@/components/ui/card'
 import Logo from './Logo'
+import { Badge } from '@/components/ui/badge'
 
 export default function Header() {
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
   const { selectedBoard, selectBoard, createBoard } = useBoardStore()
-  const { user, logout } = useAuthStore()
+  const { user, company, logout } = useAuthStore()
   const { users, fetchUsers } = useUserStore()
   const [showCreateBoard, setShowCreateBoard] = useState(false)
   const [boardName, setBoardName] = useState('')
@@ -81,11 +82,25 @@ export default function Header() {
               </Button>
             )}
             {selectedBoard ? (
-              <h1 className="text-2xl font-bold text-foreground">
-                {selectedBoard.name}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-foreground">
+                  {selectedBoard.name}
+                </h1>
+                {company && (
+                  <Badge variant="secondary" className="text-xs">
+                    {company.name}
+                  </Badge>
+                )}
+              </div>
             ) : (
-              <Logo size="md" />
+              <div className="flex items-center gap-3">
+                <Logo size="md" />
+                {company && (
+                  <Badge variant="secondary" className="text-xs">
+                    {company.name}
+                  </Badge>
+                )}
+              </div>
             )}
           </div>
 

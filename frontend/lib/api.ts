@@ -42,11 +42,13 @@ api.interceptors.request.use(
       if (authData) {
         try {
           const parsed = JSON.parse(authData)
-          if (parsed.state?.token) {
-            config.headers.Authorization = `Bearer ${parsed.state.token}`
+          const token = parsed.state?.token
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`
           }
         } catch (error) {
           // Ignore parse errors
+          console.error('Error parsing auth storage:', error)
         }
       }
     }
@@ -78,12 +80,13 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  register: (data: { name: string; email: string; password: string }) =>
+  register: (data: { name: string; email: string; password: string; companyName?: string; companyId?: string }) =>
     api.post('/auth/register', data),
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
   getAllUsers: () => api.get('/auth/users'),
+  getAllCompanies: () => api.get('/auth/companies'),
 }
 
 // Board API

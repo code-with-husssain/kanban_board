@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
 const Board = require('../models/Board');
+const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 
 // GET /api/tasks/:boardId - Fetch all tasks for a board
@@ -9,10 +10,26 @@ router.get('/:boardId', protect, async (req, res, next) => {
   try {
     const { boardId } = req.params;
     
-    // Verify board exists (either belongs to user OR has tasks assigned to user)
+    // Get current user to find their company
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If user doesn't have a companyId, return empty array
+    if (!currentUser.companyId) {
+      return res.json([]);
+    }
+    
+    // Verify board exists and belongs to user's company
     const board = await Board.findById(boardId);
     if (!board) {
       return res.status(404).json({ error: 'Board not found' });
+    }
+
+    // Check if board belongs to user's company
+    if (board.companyId && board.companyId.toString() !== currentUser.companyId.toString()) {
+      return res.status(403).json({ error: 'Access denied. This board belongs to a different company.' });
     }
 
     // Check if user is admin
@@ -22,7 +39,8 @@ router.get('/:boardId', protect, async (req, res, next) => {
     const isAssignedToBoard = board.assignees && board.assignees.includes(req.user.name);
     const hasAssignedTasks = await Task.findOne({
       boardId,
-      assignee: req.user.name
+      assignee: req.user.name,
+      companyId: currentUser.companyId
     });
 
     // Allow access if user is admin, owns the board, is assigned to it, OR has tasks assigned to them
@@ -33,8 +51,8 @@ router.get('/:boardId', protect, async (req, res, next) => {
 
     // Admins see all tasks in the board, regular users only see tasks assigned to them
     const taskQuery = isAdmin 
-      ? { boardId } // Admin: all tasks in the board
-      : { boardId, assignee: req.user.name }; // Regular user: only tasks assigned to them
+      ? { boardId, companyId: currentUser.companyId } // Admin: all tasks in the board
+      : { boardId, assignee: req.user.name, companyId: currentUser.companyId }; // Regular user: only tasks assigned to them
     
     const tasks = await Task.find(taskQuery).sort({ createdAt: -1 });
     
@@ -57,10 +75,31 @@ router.post('/', protect, async (req, res, next) => {
       return res.status(400).json({ error: 'Board ID is required' });
     }
 
-    // Verify board exists
+    // Get current user to find their company
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If user doesn't have a companyId, create a default company
+    if (!currentUser.companyId) {
+      const Company = require('../models/Company');
+      const defaultCompany = await Company.create({
+        name: `${currentUser.name}'s Company`
+      });
+      currentUser.companyId = defaultCompany._id;
+      await currentUser.save();
+    }
+
+    // Verify board exists and belongs to user's company
     const board = await Board.findById(boardId);
     if (!board) {
       return res.status(404).json({ error: 'Board not found' });
+    }
+
+    // Check if board belongs to user's company
+    if (board.companyId && board.companyId.toString() !== currentUser.companyId.toString()) {
+      return res.status(403).json({ error: 'Access denied. This board belongs to a different company.' });
     }
     
     // Check if user is admin OR owns the board OR is assigned to the board
@@ -79,7 +118,8 @@ router.post('/', protect, async (req, res, next) => {
       priority: priority || 'medium',
       assignee: assignee || '',
       userId: req.user._id,
-      boardId
+      boardId,
+      companyId: currentUser.companyId
     });
 
     const savedTask = await task.save();

@@ -26,6 +26,12 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    // Note: For existing users without companyId, they will need to be migrated
+    // New registrations will always have a companyId
+  },
   createdAt: {
     type: Date,
     default: Date.now

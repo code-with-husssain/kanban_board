@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Company = require('../models/Company');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET, protect } = require('../middleware/auth');
 
@@ -14,7 +15,7 @@ const generateToken = (id) => {
 // POST /api/auth/register - Register a new user
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, companyName, companyId } = req.body;
 
     // Validation
     if (!name || !email || !password) {
@@ -31,11 +32,34 @@ router.post('/register', async (req, res, next) => {
       return res.status(400).json({ error: 'User already exists with this email' });
     }
 
+    let company;
+    
+    // If companyId is provided, use existing company
+    if (companyId) {
+      company = await Company.findById(companyId);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+    } 
+    // If companyName is provided, create new company
+    else if (companyName) {
+      company = await Company.create({
+        name: companyName.trim()
+      });
+    } 
+    // Otherwise, create a default company with user's name
+    else {
+      company = await Company.create({
+        name: `${name}'s Company`
+      });
+    }
+
     // Create user
     const user = await User.create({
       name,
       email,
-      password
+      password,
+      companyId: company._id
     });
 
     // Generate token
@@ -47,7 +71,12 @@ router.post('/register', async (req, res, next) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role || 'user'
+        role: user.role || 'user',
+        companyId: user.companyId
+      },
+      company: {
+        _id: company._id,
+        name: company.name
       }
     });
   } catch (error) {
@@ -82,17 +111,34 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // If user doesn't have a companyId (legacy user), create a default company
+    if (!user.companyId) {
+      const defaultCompany = await Company.create({
+        name: `${user.name}'s Company`
+      });
+      user.companyId = defaultCompany._id;
+      await user.save();
+    }
+
     // Generate token
     const token = generateToken(user._id);
 
+      // Get user's company
+      const company = await Company.findById(user.companyId);
+      
       res.json({
         token,
         user: {
           _id: user._id,
           name: user.name,
           email: user.email,
-          role: user.role || 'user'
-        }
+          role: user.role || 'user',
+          companyId: user.companyId
+        },
+        company: company ? {
+          _id: company._id,
+          name: company.name
+        } : null
       });
   } catch (error) {
     next(error);
@@ -111,7 +157,7 @@ router.get('/me', async (req, res, next) => {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      const user = await User.findById(decoded.id);
+      const user = await User.findById(decoded.id).populate('companyId');
       
       if (!user) {
         return res.status(401).json({ error: 'User not found' });
@@ -122,8 +168,13 @@ router.get('/me', async (req, res, next) => {
           _id: user._id,
           name: user.name,
           email: user.email,
-          role: user.role || 'user'
-        }
+          role: user.role || 'user',
+          companyId: user.companyId
+        },
+        company: user.companyId ? {
+          _id: user.companyId._id,
+          name: user.companyId.name
+        } : null
       });
     } catch (error) {
       return res.status(401).json({ error: 'Invalid token' });
@@ -133,11 +184,30 @@ router.get('/me', async (req, res, next) => {
   }
 });
 
-// GET /api/auth/users - Get all users (protected route)
+// GET /api/auth/users - Get all users in the same company (protected route)
 router.get('/users', protect, async (req, res, next) => {
   try {
-    const users = await User.find().select('name email _id role').sort({ name: 1 });
+    // Get current user to find their company
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all users in the same company
+    const users = await User.find({ companyId: currentUser.companyId })
+      .select('name email _id role companyId')
+      .sort({ name: 1 });
     res.json(users);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/auth/companies - Get all companies (public route for company selection during registration)
+router.get('/companies', async (req, res, next) => {
+  try {
+    const companies = await Company.find().select('name _id createdAt').sort({ name: 1 });
+    res.json(companies);
   } catch (error) {
     next(error);
   }

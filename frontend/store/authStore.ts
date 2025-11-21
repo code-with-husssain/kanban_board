@@ -3,20 +3,27 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { authAPI } from '@/lib/api'
 import toast from 'react-hot-toast'
 
+export interface Company {
+  _id: string
+  name: string
+}
+
 export interface User {
   _id: string
   name: string
   email: string
   role?: string
+  companyId?: string
 }
 
 interface AuthState {
   user: User | null
+  company: Company | null
   token: string | null
   loading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string, companyName?: string, companyId?: string) => Promise<void>
   logout: () => void
   checkAuth: () => Promise<void>
 }
@@ -25,6 +32,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      company: null,
       token: null,
       loading: false,
       isAuthenticated: false,
@@ -35,6 +43,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await authAPI.login({ email, password })
           set({
             user: response.data.user,
+            company: response.data.company || null,
             token: response.data.token,
             isAuthenticated: true,
             loading: false,
@@ -48,10 +57,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (name: string, email: string, password: string) => {
+      register: async (name: string, email: string, password: string, companyName?: string, companyId?: string) => {
         set({ loading: true })
         try {
-          await authAPI.register({ name, email, password })
+          await authAPI.register({ name, email, password, companyName, companyId })
           set({ loading: false })
           toast.success('Account created successfully! Please sign in.')
         } catch (error: any) {
@@ -65,6 +74,7 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         set({
           user: null,
+          company: null,
           token: null,
           isAuthenticated: false,
         })
@@ -73,12 +83,13 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         set({ loading: true })
-        const { token, user } = get()
+        const { token, user, company } = get()
         
         // First, check if token exists in localStorage directly (bypassing Zustand state)
         // This handles cases where Zustand persist hasn't synced yet after login
         let tokenFromStorage: string | null = null
         let userFromStorage: User | null = null
+        let companyFromStorage: Company | null = null
         
         if (typeof window !== 'undefined') {
           try {
@@ -87,6 +98,7 @@ export const useAuthStore = create<AuthState>()(
               const parsed = JSON.parse(authData)
               tokenFromStorage = parsed?.state?.token || null
               userFromStorage = parsed?.state?.user || null
+              companyFromStorage = parsed?.state?.company || null
             }
           } catch (error) {
             // Ignore parse errors
@@ -96,6 +108,7 @@ export const useAuthStore = create<AuthState>()(
         // Use token from storage if Zustand state doesn't have it yet
         const effectiveToken = token || tokenFromStorage
         const effectiveUser = user || userFromStorage
+        const effectiveCompany = company || companyFromStorage
         
         if (!effectiveToken) {
           set({ isAuthenticated: false, user: null, token: null, loading: false })
@@ -110,6 +123,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true, 
             token: effectiveToken,
             user: effectiveUser,
+            company: effectiveCompany,
             loading: false 
           })
         } else if (effectiveToken) {
@@ -118,6 +132,7 @@ export const useAuthStore = create<AuthState>()(
           set({ 
             isAuthenticated: true, 
             token: effectiveToken,
+            company: effectiveCompany,
             loading: false 
           })
         }
@@ -126,6 +141,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await authAPI.getMe()
           set({
             user: response.data.user,
+            company: response.data.company || null,
             isAuthenticated: true,
             loading: false,
           })
@@ -154,7 +170,7 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ token: state.token, user: state.user }),
+      partialize: (state) => ({ token: state.token, user: state.user, company: state.company }),
     }
   )
 )

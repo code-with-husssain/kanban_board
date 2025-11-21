@@ -38,6 +38,12 @@ const taskSchema = new mongoose.Schema({
     ref: 'Board',
     required: [true, 'Board ID is required']
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    // Note: For existing tasks without companyId, they will need to be migrated
+    // New tasks will always have a companyId
+  },
   createdAt: {
     type: Date,
     default: Date.now

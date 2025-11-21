@@ -2,20 +2,39 @@ const express = require('express');
 const router = express.Router();
 const Board = require('../models/Board');
 const Task = require('../models/Task');
+const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 
-// GET /api/boards - Fetch all boards for the authenticated user
+// GET /api/boards - Fetch all boards for the authenticated user (in their company)
 router.get('/', protect, async (req, res, next) => {
   try {
-    // Get boards created by user
-    const ownedBoards = await Board.find({ userId: req.user._id });
+    // Get current user to find their company
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If user doesn't have a companyId, return empty array
+    if (!currentUser.companyId) {
+      return res.json([]);
+    }
+
+    // Get boards created by user in their company
+    const ownedBoards = await Board.find({ 
+      userId: req.user._id,
+      companyId: currentUser.companyId
+    });
     
-    // Get boards assigned to this user
-    const assignedBoards = await Board.find({ assignees: req.user.name });
+    // Get boards assigned to this user in their company
+    const assignedBoards = await Board.find({ 
+      assignees: req.user.name,
+      companyId: currentUser.companyId
+    });
     
-    // Get boards that have tasks assigned to this user
+    // Get boards that have tasks assigned to this user in their company
     const boardsWithAssignedTasks = await Task.distinct('boardId', {
-      assignee: req.user.name
+      assignee: req.user.name,
+      companyId: currentUser.companyId
     });
     
     // Get unique board IDs (owned + assigned + with assigned tasks)
@@ -25,10 +44,11 @@ router.get('/', protect, async (req, res, next) => {
       ...boardsWithAssignedTasks.filter(id => id)
     ];
     
-    // Remove duplicates and fetch all boards
+    // Remove duplicates and fetch all boards in the company
     const uniqueBoardIds = [...new Set(boardIds.map(id => id ? id.toString() : null).filter(id => id))];
     const boards = await Board.find({
-      _id: { $in: uniqueBoardIds }
+      _id: { $in: uniqueBoardIds },
+      companyId: currentUser.companyId
     }).sort({ createdAt: -1 });
     
     res.json(boards);
@@ -51,6 +71,22 @@ router.post('/', protect, async (req, res, next) => {
       return res.status(400).json({ error: 'Board name is required' });
     }
 
+    // Get current user to find their company
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If user doesn't have a companyId, create a default company
+    if (!currentUser.companyId) {
+      const Company = require('../models/Company');
+      const defaultCompany = await Company.create({
+        name: `${currentUser.name}'s Company`
+      });
+      currentUser.companyId = defaultCompany._id;
+      await currentUser.save();
+    }
+
     // Ensure assignees is an array
     const assigneesArray = Array.isArray(assignees) ? assignees : (assignees ? [assignees] : []);
 
@@ -58,6 +94,7 @@ router.post('/', protect, async (req, res, next) => {
       name,
       description: description || '',
       userId: req.user._id,
+      companyId: currentUser.companyId,
       assignees: assigneesArray
     });
 

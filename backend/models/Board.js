@@ -17,6 +17,12 @@ const boardSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'User ID is required']
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    // Note: For existing boards without companyId, they will need to be migrated
+    // New boards will always have a companyId
+  },
   assignees: {
     type: [String],
     default: []
