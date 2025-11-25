@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "set-admin": "node scripts/setAdmin.js",
-    "list-users": "node scripts/listUsers.js"
+    "list-users": "node scripts/listUsers.js",
+    "migrate-domain-admin": "node scripts/migrateDomainBasedAdmin.js"
   },
   "keywords": [
     "kanban",

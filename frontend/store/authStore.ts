@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 export interface Company {
   _id: string
   name: string
+  domain?: string
 }
 
 export interface User {
@@ -23,7 +24,7 @@ interface AuthState {
   loading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string, companyName?: string, companyId?: string) => Promise<void>
+  register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
   checkAuth: () => Promise<void>
 }
@@ -57,12 +58,19 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (name: string, email: string, password: string, companyName?: string, companyId?: string) => {
+      register: async (name: string, email: string, password: string) => {
         set({ loading: true })
         try {
-          await authAPI.register({ name, email, password, companyName, companyId })
-          set({ loading: false })
-          toast.success('Account created successfully! Please sign in.')
+          const response = await authAPI.register({ name, email, password })
+          // Auto-login after registration
+          set({
+            user: response.data.user,
+            company: response.data.company || null,
+            token: response.data.token,
+            isAuthenticated: true,
+            loading: false,
+          })
+          toast.success('Account created successfully!')
         } catch (error: any) {
           const errorMessage = error.response?.data?.error || 'Registration failed'
           set({ loading: false })

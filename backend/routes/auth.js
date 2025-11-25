@@ -12,10 +12,20 @@ const generateToken = (id) => {
   });
 };
 
+// Helper function to extract domain from email
+const extractDomain = (email) => {
+  const emailRegex = /^[^\s@]+@([^\s@]+\.[^\s@]+)$/;
+  const match = email.match(emailRegex);
+  if (!match) {
+    throw new Error('Invalid email format');
+  }
+  return match[1].toLowerCase();
+};
+
 // POST /api/auth/register - Register a new user
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password, companyName, companyId } = req.body;
+    const { name, email, password } = req.body;
 
     // Validation
     if (!name || !email || !password) {
@@ -26,40 +36,57 @@ router.post('/register', async (req, res, next) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
+    // Validate email format
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Please provide a valid email address' });
+    }
+
     // Check if user already exists
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: email.toLowerCase() });
     if (userExists) {
       return res.status(400).json({ error: 'User already exists with this email' });
     }
 
-    let company;
+    // Extract domain from email
+    let domain;
+    try {
+      domain = extractDomain(email);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Find or create company by domain
+    let company = await Company.findOne({ domain });
     
-    // If companyId is provided, use existing company
-    if (companyId) {
-      company = await Company.findById(companyId);
-      if (!company) {
-        return res.status(404).json({ error: 'Company not found' });
-      }
-    } 
-    // If companyName is provided, create new company
-    else if (companyName) {
+    if (!company) {
+      // Create new company with domain
+      // Use a default name based on domain (e.g., "company.com" -> "Company")
+      const companyName = domain.split('.')[0]
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ') + ' Company';
+      
       company = await Company.create({
-        name: companyName.trim()
-      });
-    } 
-    // Otherwise, create a default company with user's name
-    else {
-      company = await Company.create({
-        name: `${name}'s Company`
+        name: companyName,
+        domain
       });
     }
+
+    // Check if this is the first user for this company
+    const existingUsersCount = await User.countDocuments({ companyId: company._id });
+    const isFirstUser = existingUsersCount === 0;
+
+    // Determine role: first user becomes admin, others become user
+    const role = isFirstUser ? 'admin' : 'user';
 
     // Create user
     const user = await User.create({
       name,
-      email,
+      email: email.toLowerCase(),
       password,
-      companyId: company._id
+      companyId: company._id,
+      role
     });
 
     // Generate token
@@ -71,17 +98,25 @@ router.post('/register', async (req, res, next) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role || 'user',
+        role: user.role,
         companyId: user.companyId
       },
       company: {
         _id: company._id,
-        name: company.name
+        name: company.name,
+        domain: company.domain
       }
     });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ error: 'User already exists with this email' });
+      // Handle duplicate key error (email or domain)
+      if (error.keyPattern?.email) {
+        return res.status(400).json({ error: 'User already exists with this email' });
+      }
+      if (error.keyPattern?.domain) {
+        return res.status(400).json({ error: 'Company with this domain already exists' });
+      }
+      return res.status(400).json({ error: 'Duplicate entry detected' });
     }
     next(error);
   }
@@ -98,7 +133,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     // Find user and include password for comparison
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -111,20 +146,62 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // If user doesn't have a companyId (legacy user), create a default company
-    if (!user.companyId) {
-      const defaultCompany = await Company.create({
-        name: `${user.name}'s Company`
-      });
-      user.companyId = defaultCompany._id;
+    // Extract domain from email
+    let emailDomain;
+    try {
+      emailDomain = extractDomain(email);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Get user's company
+    let company = await Company.findById(user.companyId);
+
+    // If user doesn't have a companyId (legacy user), create company from domain
+    if (!company) {
+      // Check if company with this domain exists
+      company = await Company.findOne({ domain: emailDomain });
+      
+      if (!company) {
+        // Create new company with domain
+        const companyName = emailDomain.split('.')[0]
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ') + ' Company';
+        
+        company = await Company.create({
+          name: companyName,
+          domain: emailDomain
+        });
+      }
+      
+      // Assign company to user
+      user.companyId = company._id;
+      
+      // If this is the first user for this company, make them admin
+      const existingUsersCount = await User.countDocuments({ companyId: company._id });
+      if (existingUsersCount === 0) {
+        user.role = 'admin';
+      }
+      
       await user.save();
+    } else {
+      // Verify user's company domain matches their email domain (security check)
+      if (company.domain && company.domain !== emailDomain) {
+        return res.status(403).json({ 
+          error: 'Email domain does not match company domain. Please contact support.' 
+        });
+      }
+      
+      // If company doesn't have a domain set (legacy), update it
+      if (!company.domain) {
+        company.domain = emailDomain;
+        await company.save();
+      }
     }
 
     // Generate token
     const token = generateToken(user._id);
-
-      // Get user's company
-      const company = await Company.findById(user.companyId);
       
       res.json({
         token,
@@ -137,7 +214,8 @@ router.post('/login', async (req, res, next) => {
         },
         company: company ? {
           _id: company._id,
-          name: company.name
+          name: company.name,
+          domain: company.domain
         } : null
       });
   } catch (error) {
@@ -173,7 +251,8 @@ router.get('/me', async (req, res, next) => {
         },
         company: user.companyId ? {
           _id: user.companyId._id,
-          name: user.companyId.name
+          name: user.companyId.name,
+          domain: user.companyId.domain
         } : null
       });
     } catch (error) {
@@ -208,6 +287,132 @@ router.get('/companies', async (req, res, next) => {
   try {
     const companies = await Company.find().select('name _id createdAt').sort({ name: 1 });
     res.json(companies);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/auth/promote-user/:userId - Promote a user to admin (admin only, same company)
+router.post('/promote-user/:userId', protect, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const currentUser = req.user;
+
+    // Verify current user is an admin
+    if (currentUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can promote users' });
+    }
+
+    // Get current user's full data with company
+    const adminUser = await User.findById(currentUser._id);
+    if (!adminUser || !adminUser.companyId) {
+      return res.status(404).json({ error: 'Admin user not found or has no company' });
+    }
+
+    // Find target user
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify target user is in the same company
+    if (targetUser.companyId.toString() !== adminUser.companyId.toString()) {
+      return res.status(403).json({ error: 'You can only promote users in your own company' });
+    }
+
+    // Prevent promoting yourself (optional, but good practice)
+    if (targetUser._id.toString() === adminUser._id.toString()) {
+      return res.status(400).json({ error: 'You are already an admin' });
+    }
+
+    // Check if user is already an admin
+    if (targetUser.role === 'admin') {
+      return res.status(400).json({ error: 'User is already an admin' });
+    }
+
+    // Promote user to admin
+    targetUser.role = 'admin';
+    await targetUser.save();
+    
+    res.json({
+      success: true,
+      message: `User ${targetUser.name} (${targetUser.email}) has been promoted to admin`,
+      user: {
+        _id: targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/auth/demote-user/:userId - Demote an admin to user (admin only, same company)
+router.post('/demote-user/:userId', protect, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const currentUser = req.user;
+
+    // Verify current user is an admin
+    if (currentUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can demote users' });
+    }
+
+    // Get current user's full data with company
+    const adminUser = await User.findById(currentUser._id);
+    if (!adminUser || !adminUser.companyId) {
+      return res.status(404).json({ error: 'Admin user not found or has no company' });
+    }
+
+    // Find target user
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify target user is in the same company
+    if (targetUser.companyId.toString() !== adminUser.companyId.toString()) {
+      return res.status(403).json({ error: 'You can only demote users in your own company' });
+    }
+
+    // Prevent demoting yourself
+    if (targetUser._id.toString() === adminUser._id.toString()) {
+      return res.status(400).json({ error: 'You cannot demote yourself' });
+    }
+
+    // Check if user is not an admin
+    if (targetUser.role !== 'admin') {
+      return res.status(400).json({ error: 'User is not an admin' });
+    }
+
+    // Check if this is the last admin in the company
+    const adminCount = await User.countDocuments({ 
+      companyId: adminUser.companyId, 
+      role: 'admin' 
+    });
+    
+    if (adminCount <= 1) {
+      return res.status(400).json({ 
+        error: 'Cannot demote the last admin in the company. At least one admin is required.' 
+      });
+    }
+
+    // Demote user to regular user
+    targetUser.role = 'user';
+    await targetUser.save();
+    
+    res.json({
+      success: true,
+      message: `User ${targetUser.name} (${targetUser.email}) has been demoted to regular user`,
+      user: {
+        _id: targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role
+      }
+    });
   } catch (error) {
     next(error);
   }

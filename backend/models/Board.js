@@ -43,12 +43,7 @@ const boardSchema = new mongoose.Schema({
         required: true
       }
     }],
-    default: [
-      { id: 'todo', name: 'To Do', order: 0 },
-      { id: 'in-progress', name: 'In Progress', order: 1 },
-      { id: 'testing', name: 'Testing', order: 2 },
-      { id: 'done', name: 'Done', order: 3 }
-    ]
+    default: []
   },
   createdAt: {
     type: Date,

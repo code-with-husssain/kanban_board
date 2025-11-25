@@ -96,15 +96,15 @@ router.post('/', protect, async (req, res, next) => {
       return res.status(404).json({ error: 'Board not found' });
     }
 
-    // Ensure board has sections (migration for existing boards)
-    if (!board.sections || board.sections.length === 0) {
-      board.sections = [
-        { id: 'todo', name: 'To Do', order: 0 },
-        { id: 'in-progress', name: 'In Progress', order: 1 },
-        { id: 'testing', name: 'Testing', order: 2 },
-        { id: 'done', name: 'Done', order: 3 }
-      ];
+    // Ensure board has sections array (initialize if missing)
+    if (!board.sections) {
+      board.sections = [];
       await board.save();
+    }
+
+    // Check if board has any sections
+    if (!board.sections || board.sections.length === 0) {
+      return res.status(400).json({ error: 'This board has no sections. Please add sections before creating tasks.' });
     }
 
     // Check if board belongs to user's company
@@ -185,15 +185,22 @@ router.put('/:id', protect, async (req, res, next) => {
       return res.status(404).json({ error: 'Board not found' });
     }
 
-    // Ensure board has sections (migration for existing boards)
-    if (!board.sections || board.sections.length === 0) {
-      board.sections = [
-        { id: 'todo', name: 'To Do', order: 0 },
-        { id: 'in-progress', name: 'In Progress', order: 1 },
-        { id: 'testing', name: 'Testing', order: 2 },
-        { id: 'done', name: 'Done', order: 3 }
-      ];
+    // Check what fields are being updated (check before accessing board sections)
+    const updatingTitle = title !== undefined && title !== existingTask.title;
+    const updatingDescription = description !== undefined && description !== existingTask.description;
+    const updatingStatus = status !== undefined && status !== existingTask.status;
+    const updatingPriority = priority !== undefined && priority !== existingTask.priority;
+    const updatingAssignee = assignee !== undefined && assignee !== existingTask.assignee;
+
+    // Ensure board has sections array (initialize if missing)
+    if (!board.sections) {
+      board.sections = [];
       await board.save();
+    }
+
+    // Check if board has any sections when updating status
+    if (updatingStatus && (!board.sections || board.sections.length === 0)) {
+      return res.status(400).json({ error: 'This board has no sections. Please add sections before updating task status.' });
     }
 
     // Check if board belongs to user's company
@@ -213,13 +220,6 @@ router.put('/:id', protect, async (req, res, next) => {
 
     const updateData = {};
     const activities = [];
-    
-    // Check what fields are being updated
-    const updatingTitle = title !== undefined && title !== existingTask.title;
-    const updatingDescription = description !== undefined && description !== existingTask.description;
-    const updatingStatus = status !== undefined && status !== existingTask.status;
-    const updatingPriority = priority !== undefined && priority !== existingTask.priority;
-    const updatingAssignee = assignee !== undefined && assignee !== existingTask.assignee;
 
     // Status updates (drag and drop) are allowed for anyone with board access
     // Other field updates require task creator/assignee or admin

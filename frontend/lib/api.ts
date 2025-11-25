@@ -80,13 +80,15 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  register: (data: { name: string; email: string; password: string; companyName?: string; companyId?: string }) =>
+  register: (data: { name: string; email: string; password: string }) =>
     api.post('/auth/register', data),
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
   getAllUsers: () => api.get('/auth/users'),
   getAllCompanies: () => api.get('/auth/companies'),
+  promoteUser: (userId: string) => api.post(`/auth/promote-user/${userId}`),
+  demoteUser: (userId: string) => api.post(`/auth/demote-user/${userId}`),
 }
 
 // Board API
@@ -104,6 +106,8 @@ export const boardAPI = {
     api.put(`/boards/${boardId}/sections/${sectionId}`, { name }),
   deleteSection: (boardId: string, sectionId: string) =>
     api.delete(`/boards/${boardId}/sections/${sectionId}`),
+  reorderSections: (boardId: string, sectionIds: string[]) =>
+    api.put(`/boards/${boardId}/sections/reorder`, { sectionIds }),
 }
 
 // Task API

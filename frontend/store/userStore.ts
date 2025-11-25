@@ -5,6 +5,8 @@ export interface User {
   _id: string
   name: string
   email: string
+  role?: string
+  companyId?: string
 }
 
 interface UserState {

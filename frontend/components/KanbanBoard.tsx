@@ -46,6 +46,25 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
     fetchBoard()
   }, [boardId, fetchTasks, selectBoard])
 
+  // Refresh board when section manager closes (in case sections were added/updated)
+  useEffect(() => {
+    if (!showSectionManager && boardId) {
+      const refreshBoard = async () => {
+        try {
+          const response = await boardAPI.getById(boardId)
+          selectBoard(response.data)
+          // Also refresh tasks in case section changes affected them
+          fetchTasks(boardId)
+        } catch (error) {
+          console.error('Failed to refresh board:', error)
+        }
+      }
+      // Small delay to ensure backend has processed the changes
+      const timeoutId = setTimeout(refreshBoard, 100)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [showSectionManager, boardId, selectBoard, fetchTasks])
+
   const onDragEnd = async (result: DropResult) => {
     // Reset cursor and styles
     document.body.style.cursor = ''
@@ -119,14 +138,6 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
     return <LoadingSkeleton />
   }
 
-  if (columns.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p>No sections found. Please add sections to this board.</p>
-      </div>
-    )
-  }
-
   return (
     <>
       {isAdmin && (
@@ -142,25 +153,36 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
         </div>
       )}
 
-      <DragDropContext 
-        onDragStart={onDragStart} 
-        onDragUpdate={onDragUpdate}
-        onDragEnd={onDragEnd}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {columns.map((column) => (
-            <Column
-              key={column.id}
-              column={column}
-              tasks={getTasksByStatus(column.status)}
-              onTaskClick={(taskId) => {
-                setSelectedTask(taskId)
-                setShowTaskModal(true)
-              }}
-            />
-          ))}
+      {columns.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-lg mb-2">No sections found.</p>
+          <p>Please add sections to this board to get started.</p>
+          {isAdmin && (
+            <p className="mt-4 text-sm">Click "Manage Sections" above to add your first section.</p>
+          )}
         </div>
-      </DragDropContext>
+      ) : (
+
+        <DragDropContext 
+          onDragStart={onDragStart} 
+          onDragUpdate={onDragUpdate}
+          onDragEnd={onDragEnd}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {columns.map((column) => (
+              <Column
+                key={column.id}
+                column={column}
+                tasks={getTasksByStatus(column.status)}
+                onTaskClick={(taskId) => {
+                  setSelectedTask(taskId)
+                  setShowTaskModal(true)
+                }}
+              />
+            ))}
+          </div>
+        </DragDropContext>
+      )}
 
       {showTaskModal && selectedTask && (
         <TaskModal

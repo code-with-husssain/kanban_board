@@ -6,7 +6,7 @@ import { useBoardStore } from '@/store/boardStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUserStore } from '@/store/userStore'
 import { useTheme } from './ThemeProvider'
-import { Moon, Sun, ArrowLeft, Plus, LogOut, User } from 'lucide-react'
+import { Moon, Sun, ArrowLeft, Plus, LogOut, User, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -23,6 +23,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import Logo from './Logo'
 import { Badge } from '@/components/ui/badge'
+import UserManagement from './UserManagement'
 
 export default function Header() {
   const router = useRouter()
@@ -31,6 +32,7 @@ export default function Header() {
   const { user, company, logout } = useAuthStore()
   const { users, fetchUsers } = useUserStore()
   const [showCreateBoard, setShowCreateBoard] = useState(false)
+  const [showUserManagement, setShowUserManagement] = useState(false)
   const [boardName, setBoardName] = useState('')
   const [boardDescription, setBoardDescription] = useState('')
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
@@ -144,9 +146,26 @@ export default function Header() {
                       <p className="text-xs text-muted-foreground">
                         {user.email}
                       </p>
+                      {user.role === 'admin' && (
+                        <Badge variant="default" className="mt-1 text-xs">
+                          Admin
+                        </Badge>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {user.role === 'admin' && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => setShowUserManagement(!showUserManagement)}
+                        className="cursor-pointer"
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        Manage Users
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem
                       onClick={handleLogout}
                     className="text-destructive cursor-pointer"
@@ -223,6 +242,12 @@ export default function Header() {
             </div>
             </CardContent>
           </Card>
+        )}
+
+        {showUserManagement && (
+          <div className="mt-4">
+            <UserManagement />
+          </div>
         )}
       </div>
     </header>

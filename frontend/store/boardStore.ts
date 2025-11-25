@@ -51,6 +51,7 @@ interface BoardState {
   addSection: (boardId: string, name: string) => Promise<void>
   updateSection: (boardId: string, sectionId: string, name: string) => Promise<void>
   deleteSection: (boardId: string, sectionId: string) => Promise<void>
+  reorderSections: (boardId: string, sectionIds: string[]) => Promise<void>
 }
 
 export const useBoardStore = create<BoardState>((set, get) => ({
@@ -261,6 +262,19 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       toast.success('Section deleted successfully!')
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to delete section'
+      toast.error(errorMessage)
+      throw error
+    }
+  },
+
+  reorderSections: async (boardId: string, sectionIds: string[]) => {
+    try {
+      await boardAPI.reorderSections(boardId, sectionIds)
+      // Refresh board to get updated sections
+      await get().fetchBoardSections(boardId)
+      toast.success('Sections reordered successfully!')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to reorder sections'
       toast.error(errorMessage)
       throw error
     }

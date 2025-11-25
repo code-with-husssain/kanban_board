@@ -113,14 +113,9 @@ router.get('/:id', protect, async (req, res, next) => {
       return res.status(404).json({ error: 'Board not found' });
     }
     
-    // Ensure board has sections (migration for existing boards)
-    if (!board.sections || board.sections.length === 0) {
-      board.sections = [
-        { id: 'todo', name: 'To Do', order: 0 },
-        { id: 'in-progress', name: 'In Progress', order: 1 },
-        { id: 'testing', name: 'Testing', order: 2 },
-        { id: 'done', name: 'Done', order: 3 }
-      ];
+    // Ensure board has sections array (initialize if missing, but don't add default sections)
+    if (!board.sections) {
+      board.sections = [];
       await board.save();
     }
     
@@ -233,18 +228,15 @@ router.post('/:id/sections', protect, async (req, res, next) => {
       return res.status(404).json({ error: 'Board not found' });
     }
 
-    // Ensure board has sections
-    if (!board.sections || board.sections.length === 0) {
-      board.sections = [
-        { id: 'todo', name: 'To Do', order: 0 },
-        { id: 'in-progress', name: 'In Progress', order: 1 },
-        { id: 'testing', name: 'Testing', order: 2 },
-        { id: 'done', name: 'Done', order: 3 }
-      ];
+    // Ensure board has sections array (initialize if missing, but don't add default sections)
+    if (!board.sections) {
+      board.sections = [];
     }
 
     // Generate unique ID for new section
-    const maxOrder = Math.max(...board.sections.map(s => s.order), -1);
+    const maxOrder = board.sections.length > 0 
+      ? Math.max(...board.sections.map(s => s.order), -1) 
+      : -1;
     const newSectionId = `custom-${Date.now()}`;
     const newSection = {
       id: newSectionId,
@@ -344,6 +336,60 @@ router.delete('/:id/sections/:sectionId', protect, async (req, res, next) => {
     await board.save();
 
     res.json({ message: 'Section deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/boards/:id/sections/reorder - Reorder sections (Admin only)
+router.put('/:id/sections/reorder', protect, async (req, res, next) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can manage sections' });
+    }
+
+    const boardId = req.params.id;
+    const { sectionIds } = req.body; // Array of section IDs in new order
+
+    if (!Array.isArray(sectionIds)) {
+      return res.status(400).json({ error: 'sectionIds must be an array' });
+    }
+
+    const board = await Board.findById(boardId);
+    if (!board) {
+      return res.status(404).json({ error: 'Board not found' });
+    }
+
+    // Ensure board has sections
+    if (!board.sections || board.sections.length === 0) {
+      return res.status(404).json({ error: 'Board has no sections' });
+    }
+
+    // Validate that all section IDs exist and match
+    const existingSectionIds = board.sections.map(s => s.id);
+    if (sectionIds.length !== existingSectionIds.length) {
+      return res.status(400).json({ error: 'Number of sections does not match' });
+    }
+
+    const allSectionsExist = sectionIds.every(id => existingSectionIds.includes(id));
+    if (!allSectionsExist) {
+      return res.status(400).json({ error: 'One or more section IDs are invalid' });
+    }
+
+    // Reorder sections based on the provided order
+    const sectionMap = new Map(board.sections.map(s => [s.id, s]));
+    board.sections = sectionIds.map((id, index) => {
+      const section = sectionMap.get(id);
+      return {
+        ...section.toObject(),
+        order: index
+      };
+    });
+
+    await board.save();
+
+    res.json({ message: 'Sections reordered successfully', sections: board.sections });
   } catch (error) {
     next(error);
   }

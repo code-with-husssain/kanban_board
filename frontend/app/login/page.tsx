@@ -1,22 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
-import { LogIn, Mail, Lock, User, Building2 } from 'lucide-react'
+import { LogIn, Mail, Lock, User, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import Logo from '@/components/Logo'
-import { authAPI } from '@/lib/api'
+
+// Helper function to extract domain from email
+const extractDomain = (email: string): string | null => {
+  const emailRegex = /^[^\s@]+@([^\s@]+\.[^\s@]+)$/
+  const match = email.match(emailRegex)
+  return match ? match[1].toLowerCase() : null
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -25,25 +24,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [name, setName] = useState('')
-  const [companyName, setCompanyName] = useState('')
-  const [companyId, setCompanyId] = useState('')
-  const [companies, setCompanies] = useState<Array<{ _id: string; name: string }>>([])
-  const [companyMode, setCompanyMode] = useState<'new' | 'existing'>('new')
 
   const { register } = useAuthStore()
 
-  useEffect(() => {
-    if (!isLogin) {
-      // Fetch companies when in registration mode
-      authAPI.getAllCompanies()
-        .then((response) => {
-          setCompanies(response.data)
-        })
-        .catch(() => {
-          // Ignore errors, user can still create new company
-        })
-    }
-  }, [isLogin])
+  // Extract domain from email for preview
+  const extractedDomain = useMemo(() => {
+    if (!email || isLogin) return null
+    return extractDomain(email)
+  }, [email, isLogin])
 
   useEffect(() => {
     if (isAuthenticated && !loading) {
@@ -60,21 +48,9 @@ export default function LoginPage() {
         // The useEffect will handle the redirect after state is updated
         // No need for hard redirect - let React handle it naturally
       } else {
-        await register(
-          name, 
-          email, 
-          password, 
-          companyMode === 'new' ? companyName : undefined,
-          companyMode === 'existing' ? companyId : undefined
-        )
-        // After successful registration, switch to login mode
-        setIsLogin(true)
-        setPassword('') // Clear password field
-        setName('') // Clear name field
-        setCompanyName('') // Clear company name
-        setCompanyId('') // Clear company ID
-        setCompanyMode('new') // Reset company mode
-        // Keep email filled in for convenience
+        await register(name, email, password)
+        // After successful registration, user is auto-logged in
+        // The useEffect will handle the redirect
       }
     } catch (error) {
       // Error handled by toast
@@ -95,88 +71,21 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {!isLogin && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="name"
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="pl-10"
-                      placeholder="Your name"
-                      required={!isLogin}
-                    />
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-10"
+                    placeholder="Your name"
+                    required
+                  />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Company</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={companyMode === 'new' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setCompanyMode('new')
-                        setCompanyId('')
-                      }}
-                      className="flex-1"
-                    >
-                      New Company
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={companyMode === 'existing' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setCompanyMode('existing')
-                        setCompanyName('')
-                      }}
-                      className="flex-1"
-                    >
-                      Join Existing
-                    </Button>
-                  </div>
-                </div>
-
-                {companyMode === 'new' ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="companyName">Company Name</Label>
-                    <div className="relative">
-                      <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="companyName"
-                        type="text"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        className="pl-10"
-                        placeholder="Your company name"
-                        required={!isLogin && companyMode === 'new'}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="companyId">Select Company</Label>
-                    <Select
-                      value={companyId}
-                      onValueChange={setCompanyId}
-                    >
-                      <SelectTrigger id="companyId">
-                        <SelectValue placeholder="Select a company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies.map((company) => (
-                          <SelectItem key={company._id} value={company._id}>
-                            {company.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </>
+              </div>
             )}
 
             <div className="space-y-2">
@@ -193,6 +102,19 @@ export default function LoginPage() {
                   required
                 />
               </div>
+              {!isLogin && extractedDomain && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
+                  <Globe className="w-4 h-4" />
+                  <span>Company domain: <span className="font-medium text-foreground">{extractedDomain}</span></span>
+                  {extractedDomain && (
+                    <span className="ml-auto text-xs">
+                      {extractedDomain === 'gmail.com' || extractedDomain === 'yahoo.com' || extractedDomain === 'outlook.com' 
+                        ? '(Personal email - new company will be created)'
+                        : '(Company will be auto-created or matched)'}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -230,9 +152,6 @@ export default function LoginPage() {
                 setName('')
                 setEmail('')
                 setPassword('')
-                setCompanyName('')
-                setCompanyId('')
-                setCompanyMode('new')
               }}
               className="text-sm text-foreground"
             >
