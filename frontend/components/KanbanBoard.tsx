@@ -3,30 +3,48 @@
 import { useEffect, useState } from 'react'
 import { DragDropContext, DropResult } from '@hello-pangea/dnd'
 import { useBoardStore } from '@/store/boardStore'
+import { useAuthStore } from '@/store/authStore'
+import { boardAPI } from '@/lib/api'
 import Column from './Column'
 import TaskModal from './TaskModal'
+import SectionManager from './SectionManager'
 import LoadingSkeleton from './LoadingSkeleton'
+import { Button } from '@/components/ui/button'
+import { Settings } from 'lucide-react'
 
 interface KanbanBoardProps {
   boardId: string
 }
 
-const columns = [
-  { id: 'todo', title: 'To Do', status: 'todo' as const },
-  { id: 'in-progress', title: 'In Progress', status: 'in-progress' as const },
-  { id: 'done', title: 'Done', status: 'done' as const },
-]
-
 export default function KanbanBoard({ boardId }: KanbanBoardProps) {
-  const { tasks, loading, fetchTasks, moveTask } = useBoardStore()
+  const { tasks, loading, fetchTasks, moveTask, selectedBoard, selectBoard } = useBoardStore()
+  const { user } = useAuthStore()
   const [selectedTask, setSelectedTask] = useState<string | null>(null)
   const [showTaskModal, setShowTaskModal] = useState(false)
+  const [showSectionManager, setShowSectionManager] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [boardLoading, setBoardLoading] = useState(true)
+  
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     setIsMounted(true)
     fetchTasks(boardId)
-  }, [boardId, fetchTasks])
+    
+    // Fetch board details to get sections
+    const fetchBoard = async () => {
+      try {
+        setBoardLoading(true)
+        const response = await boardAPI.getById(boardId)
+        selectBoard(response.data)
+      } catch (error) {
+        console.error('Failed to fetch board:', error)
+      } finally {
+        setBoardLoading(false)
+      }
+    }
+    fetchBoard()
+  }, [boardId, fetchTasks, selectBoard])
 
   const onDragEnd = async (result: DropResult) => {
     // Reset cursor and styles
@@ -48,8 +66,8 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
       return
     }
 
-    // Get the new status from the destination column
-    const newStatus = destination.droppableId as 'todo' | 'in-progress' | 'done'
+    // Get the new status from the destination column (section ID)
+    const newStatus = destination.droppableId
     
     // Find the task to get its current status
     const task = tasks.find(t => t._id === draggableId)
@@ -86,28 +104,60 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
     return tasks.filter((task) => task.status === status)
   }
 
-  if (loading || !isMounted) {
+  // Get sections from board, sorted by order
+  const sections = selectedBoard?.sections || []
+  const sortedSections = [...sections].sort((a, b) => a.order - b.order)
+
+  // Map sections to column format
+  const columns = sortedSections.map((section) => ({
+    id: section.id,
+    title: section.name,
+    status: section.id,
+  }))
+
+  if (loading || boardLoading || !isMounted) {
     return <LoadingSkeleton />
+  }
+
+  if (columns.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <p>No sections found. Please add sections to this board.</p>
+      </div>
+    )
   }
 
   return (
     <>
+      {isAdmin && (
+        <div className="mb-4 flex justify-end">
+          <Button
+            variant="outline"
+            onClick={() => setShowSectionManager(true)}
+            className="flex items-center gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            Manage Sections
+          </Button>
+        </div>
+      )}
+
       <DragDropContext 
         onDragStart={onDragStart} 
         onDragUpdate={onDragUpdate}
         onDragEnd={onDragEnd}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {columns.map((column) => (
             <Column
               key={column.id}
-                column={column}
-                tasks={getTasksByStatus(column.status)}
-                onTaskClick={(taskId) => {
-                  setSelectedTask(taskId)
-                  setShowTaskModal(true)
-                }}
-              />
+              column={column}
+              tasks={getTasksByStatus(column.status)}
+              onTaskClick={(taskId) => {
+                setSelectedTask(taskId)
+                setShowTaskModal(true)
+              }}
+            />
           ))}
         </div>
       </DragDropContext>
@@ -119,6 +169,14 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
             setShowTaskModal(false)
             setSelectedTask(null)
           }}
+        />
+      )}
+
+      {showSectionManager && (
+        <SectionManager
+          boardId={boardId}
+          open={showSectionManager}
+          onClose={() => setShowSectionManager(false)}
         />
       )}
     </>

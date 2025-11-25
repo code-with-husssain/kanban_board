@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useBoardStore, Task } from '@/store/boardStore'
 import { useUserStore } from '@/store/userStore'
-import { Trash2, Save } from 'lucide-react'
+import { taskAPI } from '@/lib/api'
+import { Save, Clock, User, ArrowRight } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -31,19 +32,25 @@ interface TaskModalProps {
 }
 
 export default function TaskModal({ taskId, onClose }: TaskModalProps) {
-  const { tasks, updateTask, deleteTask, selectedBoard } = useBoardStore()
+  const { tasks, updateTask, selectedBoard } = useBoardStore()
   const { users, fetchUsers } = useUserStore()
   const task = tasks.find((t) => t._id === taskId)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [status, setStatus] = useState<'todo' | 'in-progress' | 'done'>('todo')
+  const [status, setStatus] = useState<string>('todo')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [assignee, setAssignee] = useState('unassigned')
   const [loading, setLoading] = useState(false)
+  const [activities, setActivities] = useState<any[]>([])
+  const [loadingActivities, setLoadingActivities] = useState(false)
 
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
+
+  // Get sections from board, sorted by order
+  const sections = selectedBoard?.sections || []
+  const sortedSections = [...sections].sort((a, b) => a.order - b.order)
 
   // Filter users to only show those assigned to this board
   const boardAssignees = selectedBoard?.assignees || []
@@ -61,6 +68,23 @@ export default function TaskModal({ taskId, onClose }: TaskModalProps) {
     }
   }, [task])
 
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (!taskId) return
+      setLoadingActivities(true)
+      try {
+        const response = await taskAPI.getActivity(taskId)
+        setActivities(response.data || [])
+      } catch (error) {
+        console.error('Failed to fetch activities:', error)
+        setActivities([])
+      } finally {
+        setLoadingActivities(false)
+      }
+    }
+    fetchActivities()
+  }, [taskId])
+
   if (!task) return null
 
   const handleSave = async () => {
@@ -73,21 +97,18 @@ export default function TaskModal({ taskId, onClose }: TaskModalProps) {
         priority,
         assignee: assignee === 'unassigned' ? undefined : assignee.trim(),
       })
+      // Refresh activities after update
+      try {
+        const response = await taskAPI.getActivity(taskId)
+        setActivities(response.data || [])
+      } catch (error) {
+        console.error('Failed to refresh activities:', error)
+      }
       onClose()
     } catch (error) {
       // Error handled by toast
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this task?')) return
-    try {
-      await deleteTask(taskId)
-      onClose()
-    } catch (error) {
-      // Error handled by toast
     }
   }
 
@@ -127,15 +148,17 @@ export default function TaskModal({ taskId, onClose }: TaskModalProps) {
               <Label htmlFor="status">Status</Label>
               <Select
                     value={status}
-                onValueChange={(value) => setStatus(value as 'todo' | 'in-progress' | 'done')}
+                onValueChange={(value) => setStatus(value)}
               >
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
+                  {sortedSections.map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
                 </div>
@@ -189,31 +212,116 @@ export default function TaskModal({ taskId, onClose }: TaskModalProps) {
 
         <Separator />
 
-        <DialogFooter className="flex items-center justify-between">
-          <Button
-            variant="destructive"
-                onClick={handleDelete}
-            className="flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-          </Button>
-              <div className="flex gap-2">
-            <Button
-              variant="secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-            </Button>
-            <Button
-                  onClick={handleSave}
-                  disabled={loading || !title.trim()}
-              className="flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  {loading ? 'Saving...' : 'Save'}
-            </Button>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-base font-semibold">Activity</Label>
+            <p className="text-sm text-muted-foreground mb-3">History of changes made to this task</p>
           </div>
+          
+          {loadingActivities ? (
+            <div className="text-sm text-muted-foreground">Loading activity...</div>
+          ) : activities.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No activity yet</div>
+          ) : (
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {activities.map((activity) => {
+                const formatActivity = () => {
+                  const userName = activity.userName || 'Unknown'
+                  const time = new Date(activity.createdAt).toLocaleString()
+                  
+                  switch (activity.action) {
+                    case 'created':
+                      return (
+                        <div className="flex items-start gap-2 text-sm">
+                          <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <span className="font-medium">{userName}</span> created this task
+                            <div className="text-xs text-muted-foreground mt-0.5">{time}</div>
+                          </div>
+                        </div>
+                      )
+                    case 'updated':
+                      const fieldLabels: { [key: string]: string } = {
+                        title: 'Title',
+                        description: 'Description',
+                        priority: 'Priority',
+                        assignee: 'Assignee'
+                      }
+                      return (
+                        <div className="flex items-start gap-2 text-sm">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <span className="font-medium">{userName}</span> updated {fieldLabels[activity.field] || activity.field}
+                            {activity.oldValue && activity.newValue && (
+                              <div className="mt-1 flex items-center gap-2 text-xs">
+                                <span className="line-through text-muted-foreground">{activity.oldValue}</span>
+                                <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                <span className="font-medium">{activity.newValue}</span>
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground mt-0.5">{time}</div>
+                          </div>
+                        </div>
+                      )
+                    case 'moved':
+                      return (
+                        <div className="flex items-start gap-2 text-sm">
+                          <div className="w-2 h-2 rounded-full bg-purple-500 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <span className="font-medium">{userName}</span> moved this task
+                            {activity.oldValue && activity.newValue && (
+                              <div className="mt-1 flex items-center gap-2 text-xs">
+                                <span className="line-through text-muted-foreground">{activity.oldValue}</span>
+                                <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                <span className="font-medium">{activity.newValue}</span>
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground mt-0.5">{time}</div>
+                          </div>
+                        </div>
+                      )
+                    case 'deleted':
+                      return (
+                        <div className="flex items-start gap-2 text-sm">
+                          <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <span className="font-medium">{userName}</span> deleted this task
+                            <div className="text-xs text-muted-foreground mt-0.5">{time}</div>
+                          </div>
+                        </div>
+                      )
+                    default:
+                      return null
+                  }
+                }
+                
+                return (
+                  <div key={activity._id} className="pb-2 border-b last:border-0">
+                    {formatActivity()}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <Separator />
+
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={loading || !title.trim()}
+            className="flex items-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            {loading ? 'Saving...' : 'Save'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

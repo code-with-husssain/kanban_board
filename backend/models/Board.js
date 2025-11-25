@@ -27,6 +27,29 @@ const boardSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  sections: {
+    type: [{
+      id: {
+        type: String,
+        required: true
+      },
+      name: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      order: {
+        type: Number,
+        required: true
+      }
+    }],
+    default: [
+      { id: 'todo', name: 'To Do', order: 0 },
+      { id: 'in-progress', name: 'In Progress', order: 1 },
+      { id: 'testing', name: 'Testing', order: 2 },
+      { id: 'done', name: 'Done', order: 3 }
+    ]
+  },
   createdAt: {
     type: Date,
     default: Date.now

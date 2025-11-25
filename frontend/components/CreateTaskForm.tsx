@@ -19,10 +19,10 @@ import { Card, CardContent } from '@/components/ui/card'
 
 interface CreateTaskFormProps {
   onClose: () => void
-  initialStatus?: 'todo' | 'in-progress' | 'done'
+  initialStatus?: string
 }
 
-export default function CreateTaskForm({ onClose, initialStatus = 'todo' }: CreateTaskFormProps) {
+export default function CreateTaskForm({ onClose, initialStatus }: CreateTaskFormProps) {
   const { selectedBoard, createTask } = useBoardStore()
   const { users, fetchUsers } = useUserStore()
   const [title, setTitle] = useState('')
@@ -36,6 +36,11 @@ export default function CreateTaskForm({ onClose, initialStatus = 'todo' }: Crea
   }, [fetchUsers])
 
   if (!selectedBoard) return null
+
+  // Get sections from board, sorted by order
+  const sections = selectedBoard.sections || []
+  const sortedSections = [...sections].sort((a, b) => a.order - b.order)
+  const defaultStatus = initialStatus || (sortedSections.length > 0 ? sortedSections[0].id : 'todo')
 
   // Filter users to only show those assigned to this board
   const boardAssignees = selectedBoard.assignees || []
@@ -52,7 +57,7 @@ export default function CreateTaskForm({ onClose, initialStatus = 'todo' }: Crea
       await createTask({
         title,
         description,
-        status: initialStatus,
+        status: defaultStatus,
         priority,
         assignee: assignee === 'unassigned' ? undefined : assignee.trim(),
         boardId: selectedBoard._id,

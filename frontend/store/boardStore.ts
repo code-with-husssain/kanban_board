@@ -2,12 +2,19 @@ import { create } from 'zustand'
 import { boardAPI, taskAPI } from '@/lib/api'
 import toast from 'react-hot-toast'
 
+export interface BoardSection {
+  id: string
+  name: string
+  order: number
+}
+
 export interface Board {
   _id: string
   name: string
   description?: string
   userId?: string
   assignees?: string[]
+  sections?: BoardSection[]
   createdAt: string
 }
 
@@ -15,9 +22,10 @@ export interface Task {
   _id: string
   title: string
   description?: string
-  status: 'todo' | 'in-progress' | 'done'
+  status: string
   priority: 'low' | 'medium' | 'high'
   assignee?: string
+  userId?: string
   boardId: string
   createdAt: string
   updatedAt: string
@@ -32,12 +40,17 @@ interface BoardState {
   fetchBoards: () => Promise<void>
   selectBoard: (board: Board | null) => void
   createBoard: (name: string, description?: string, assignees?: string[]) => Promise<void>
+  updateBoard: (id: string, updates: { name?: string; description?: string; assignees?: string[] }) => Promise<void>
   deleteBoard: (id: string) => Promise<void>
   fetchTasks: (boardId: string) => Promise<void>
   createTask: (task: Omit<Task, '_id' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>
   deleteTask: (id: string) => Promise<void>
-  moveTask: (taskId: string, newStatus: Task['status']) => Promise<void>
+  moveTask: (taskId: string, newStatus: string) => Promise<void>
+  fetchBoardSections: (boardId: string) => Promise<void>
+  addSection: (boardId: string, name: string) => Promise<void>
+  updateSection: (boardId: string, sectionId: string, name: string) => Promise<void>
+  deleteSection: (boardId: string, sectionId: string) => Promise<void>
 }
 
 export const useBoardStore = create<BoardState>((set, get) => ({
@@ -76,6 +89,22 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       toast.success('Board created successfully!')
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to create board'
+      toast.error(errorMessage)
+      throw error
+    }
+  },
+
+  updateBoard: async (id: string, updates: { name?: string; description?: string; assignees?: string[] }) => {
+    try {
+      const response = await boardAPI.update(id, updates)
+      const updatedBoard = response.data
+      set((state) => ({
+        boards: state.boards.map((b) => (b._id === id ? updatedBoard : b)),
+        selectedBoard: state.selectedBoard?._id === id ? updatedBoard : state.selectedBoard,
+      }))
+      toast.success('Board updated successfully!')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to update board'
       toast.error(errorMessage)
       throw error
     }
@@ -156,7 +185,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
     }
   },
 
-  moveTask: async (taskId: string, newStatus: Task['status']) => {
+  moveTask: async (taskId: string, newStatus: string) => {
     const currentTask = get().tasks.find((t) => t._id === taskId)
     if (!currentTask) return
 
@@ -178,6 +207,61 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         ),
       }))
       // Error toast is already handled in updateTask
+      throw error
+    }
+  },
+
+  fetchBoardSections: async (boardId: string) => {
+    try {
+      const response = await boardAPI.getById(boardId)
+      const board = response.data
+      set((state) => ({
+        boards: state.boards.map((b) => (b._id === boardId ? board : b)),
+        selectedBoard: state.selectedBoard?._id === boardId ? board : state.selectedBoard,
+      }))
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to fetch board sections'
+      toast.error(errorMessage)
+      throw error
+    }
+  },
+
+  addSection: async (boardId: string, name: string) => {
+    try {
+      const response = await boardAPI.addSection(boardId, name)
+      const newSection = response.data
+      // Refresh board to get updated sections
+      await get().fetchBoardSections(boardId)
+      toast.success('Section added successfully!')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to add section'
+      toast.error(errorMessage)
+      throw error
+    }
+  },
+
+  updateSection: async (boardId: string, sectionId: string, name: string) => {
+    try {
+      await boardAPI.updateSection(boardId, sectionId, name)
+      // Refresh board to get updated sections
+      await get().fetchBoardSections(boardId)
+      toast.success('Section updated successfully!')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to update section'
+      toast.error(errorMessage)
+      throw error
+    }
+  },
+
+  deleteSection: async (boardId: string, sectionId: string) => {
+    try {
+      await boardAPI.deleteSection(boardId, sectionId)
+      // Refresh board to get updated sections
+      await get().fetchBoardSections(boardId)
+      toast.success('Section deleted successfully!')
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to delete section'
+      toast.error(errorMessage)
       throw error
     }
   },

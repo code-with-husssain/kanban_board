@@ -13,7 +13,7 @@ interface ColumnProps {
   column: {
     id: string
     title: string
-    status: 'todo' | 'in-progress' | 'done'
+    status: string
   }
   tasks: any[]
   onTaskClick: (taskId: string) => void
@@ -23,15 +23,19 @@ export default function Column({ column, tasks, onTaskClick }: ColumnProps) {
   const [showCreateForm, setShowCreateForm] = useState(false)
 
   const getColumnColor = () => {
-    switch (column.status) {
-      case 'todo':
-        return 'border-foreground/20 bg-muted/30'
-      case 'in-progress':
-        return 'border-foreground/30 bg-muted/40'
-      case 'done':
-        return 'border-foreground/40 bg-muted/50'
-      default:
-        return 'border-border bg-muted/20'
+    // Use a consistent color scheme based on section ID
+    // Default sections get specific colors, custom sections get a default color
+    if (column.status === 'todo') {
+      return 'border-foreground/20 bg-muted/30'
+    } else if (column.status === 'in-progress') {
+      return 'border-foreground/30 bg-muted/40'
+    } else if (column.status === 'testing') {
+      return 'border-foreground/35 bg-muted/45'
+    } else if (column.status === 'done') {
+      return 'border-foreground/40 bg-muted/50'
+    } else {
+      // Custom sections get a default color
+      return 'border-border bg-muted/20'
     }
   }
 
@@ -49,18 +53,16 @@ export default function Column({ column, tasks, onTaskClick }: ColumnProps) {
         </div>
         </CardHeader>
         <CardContent className="flex flex-col flex-1">
-        {column.status === 'todo' && (
-            <Button
-              variant="outline"
-            onClick={() => setShowCreateForm(!showCreateForm)}
-              className="mb-4 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Task
-            </Button>
-        )}
+        <Button
+          variant="outline"
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className="mb-4 flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Task
+        </Button>
 
-        {showCreateForm && column.status === 'todo' && (
+        {showCreateForm && (
           <CreateTaskForm
             onClose={() => setShowCreateForm(false)}
             initialStatus={column.status}

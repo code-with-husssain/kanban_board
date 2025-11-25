@@ -2,9 +2,13 @@
 
 import { Draggable } from '@hello-pangea/dnd'
 import { Task } from '@/store/boardStore'
-import { AlertCircle, Clock, GripVertical, User } from 'lucide-react'
+import { useBoardStore } from '@/store/boardStore'
+import { useAuthStore } from '@/store/authStore'
+import { AlertCircle, Clock, GripVertical, User, Pencil, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { useState } from 'react'
 
 interface TaskCardProps {
   task: Task
@@ -13,6 +17,41 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ task, index, onClick }: TaskCardProps) {
+  const { user } = useAuthStore()
+  const { deleteTask } = useBoardStore()
+  const [deleting, setDeleting] = useState(false)
+  
+  // Check if current user created this task or is assigned to it
+  const isTaskCreator = user && task.userId && (
+    String(task.userId) === String(user._id) || 
+    task.userId === user._id ||
+    task.userId?.toString() === user._id?.toString()
+  )
+  
+  const isTaskAssignee = user && task.assignee === user.name
+  
+  // Show edit/delete for task creator or assignee
+  const canEditDelete = isTaskCreator || isTaskAssignee
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onClick()
+  }
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this task?')) {
+      return
+    }
+    setDeleting(true)
+    try {
+      await deleteTask(task._id)
+    } catch (error) {
+      // Error handled by toast
+    } finally {
+      setDeleting(false)
+    }
+  }
   const getPriorityColor = () => {
     switch (task.priority) {
       case 'high':
@@ -61,7 +100,32 @@ export default function TaskCard({ task, index, onClick }: TaskCardProps) {
                 {task.title}
               </h3>
             </div>
-            {getPriorityIcon()}
+            <div className="flex items-center gap-1">
+              {canEditDelete && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleEdit}
+                    className="h-6 w-6 hover:bg-accent opacity-100"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="h-6 w-6 text-destructive hover:bg-destructive/10 opacity-100"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </>
+              )}
+              {getPriorityIcon()}
+            </div>
           </div>
           {task.description && (
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-2">

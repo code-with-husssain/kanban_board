@@ -95,12 +95,21 @@ export const boardAPI = {
   getById: (id: string) => api.get(`/boards/${id}`),
   create: (data: { name: string; description?: string; assignees?: string[] }) => 
     api.post('/boards', data),
+  update: (id: string, data: { name?: string; description?: string; assignees?: string[] }) =>
+    api.put(`/boards/${id}`, data),
   delete: (id: string) => api.delete(`/boards/${id}`),
+  addSection: (boardId: string, name: string) =>
+    api.post(`/boards/${boardId}/sections`, { name }),
+  updateSection: (boardId: string, sectionId: string, name: string) =>
+    api.put(`/boards/${boardId}/sections/${sectionId}`, { name }),
+  deleteSection: (boardId: string, sectionId: string) =>
+    api.delete(`/boards/${boardId}/sections/${sectionId}`),
 }
 
 // Task API
 export const taskAPI = {
   getByBoardId: (boardId: string) => api.get(`/tasks/${boardId}`),
+  getActivity: (taskId: string) => api.get(`/tasks/${taskId}/activity`),
   create: (data: {
     title: string
     description?: string
